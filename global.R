@@ -110,11 +110,5 @@ out <- SpaDES.project::setupProject(
 out$loadOrder <- unlist(out$modules)
 
 initOut <- SpaDES.core::simInit2(out)
-reproducible::clearCache(fun = "doEvent.Biomass_core::init")
-Y
-reproducible::clearCache(fun = "doEvent.Biomass_regeneration::init")
-Y
-reproducible::clearCache(fun = "doEvent.Biomass_speciesParameters::init")
-Y
 simOut <- SpaDES.core::spades(initOut)
 
