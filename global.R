@@ -24,6 +24,7 @@ out <- SpaDES.project::setupProject(
     "PredictiveEcology/Biomass_speciesFactorial@development",
     "PredictiveEcology/Biomass_speciesParameters@development",
     "PredictiveEcology/CBM_defaults@development",
+    "DominiqueCaron/historicalDisturbances@main",
     "PredictiveEcology/Biomass_regeneration@development",
     "PredictiveEcology/Biomass_yieldTables@main",
     "PredictiveEcology/Biomass_core@development",
@@ -61,7 +62,6 @@ out <- SpaDES.project::setupProject(
     masterRaster = rasterToMatch
     masterRaster
   },
-  disturbanceSource = "NTEMS",
   sppEquiv = {
     speciesInStudy <- LandR::speciesInStudyArea(studyArea,
                                                 dPath = "inputs")
@@ -69,6 +69,14 @@ out <- SpaDES.project::setupProject(
     sppEquiv <- LandR::sppEquivalencies_CA[LandR %in% species]
     sppEquiv <- sppEquiv[KNN != "" & LANDIS_traits != ""] #avoid a bug with shore pine
   },
+  disturbanceMeta = data.table(
+    eventID = 1,
+    wholeStand = 1,
+    disturbance_type_id = 1,
+    distName = "wildfire",
+    objectName = "rstCurrentBurn",
+    delay = 0
+  ),
   outputs = as.data.frame(expand.grid(
     objectName = c("cbmPools", "NPP"),
     saveTime   = sort(c(times$start, times$start + c(1:(times$end - times$start))))
@@ -80,6 +88,10 @@ out <- SpaDES.project::setupProject(
       sppEquivCol = 'LandR',
       .studyAreaName = "NWT",
       dataYear = 2011
+    ),
+    historicalDisturbances = list(
+      disturbanceSource = "NBAC",
+      disturbanceTypes = "wildfire"
     ),
     CBM_core = list(
       skipPrepareCBMvars = TRUE
