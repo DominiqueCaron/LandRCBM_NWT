@@ -15,9 +15,12 @@ out <- SpaDES.project::setupProject(
                inputPath = "inputs",
                outputPath = "outputs",
                cachePath = "cache"),
-  options = options(spades.moduleCodeChecks = FALSE,
-                    spades.recoveryMode = FALSE,
-                    reproducible.useMemoise = TRUE),
+  options = options(
+    repos = c(repos = repos),
+    Require.cloneFrom = Sys.getenv("R_LIBS_USER"),
+    spades.moduleCodeChecks = FALSE,
+    spades.recoveryMode = FALSE,
+    reproducible.useMemoise = TRUE),
   times = list(start = 1990, end = 2024),
   modules = c(
     "PredictiveEcology/Biomass_borealDataPrep@development",
@@ -90,7 +93,7 @@ out <- SpaDES.project::setupProject(
       dataYear = 2011
     ),
     historicalDisturbances = list(
-      disturbanceSource = "NBAC",
+      disturbanceSource = "CanLaD",
       disturbanceTypes = "wildfire"
     ),
     CBM_core = list(
