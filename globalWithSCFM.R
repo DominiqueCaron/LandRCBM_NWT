@@ -13,7 +13,7 @@ if (!require("SpaDES.project")){
 out <- SpaDES.project::setupProject(
   paths = list(projectPath = getwd(),
                inputPath = "inputs",
-               outputPath = "outputs",
+               outputPath = "outputs/withSCFM",
                cachePath = "cache"),
   options = options(
     repos = c(repos = repos),
@@ -21,19 +21,22 @@ out <- SpaDES.project::setupProject(
     spades.moduleCodeChecks = FALSE,
     spades.recoveryMode = FALSE,
     reproducible.useMemoise = TRUE),
-  times = list(start = 1990, end = 2024),
+  times = list(start = 1990, end = 2490),
   modules = c(
     "PredictiveEcology/Biomass_borealDataPrep@development",
     "PredictiveEcology/Biomass_speciesFactorial@development",
     "PredictiveEcology/Biomass_speciesParameters@development",
     "PredictiveEcology/CBM_defaults@development",
-    "DominiqueCaron/historicalDisturbances@main",
     "PredictiveEcology/Biomass_regeneration@development",
     "PredictiveEcology/Biomass_yieldTables@main",
     "PredictiveEcology/Biomass_core@development",
     "PredictiveEcology/CBM_dataPrep@development",
     "PredictiveEcology/LandRCBM_split3pools@main",
-    "PredictiveEcology/CBM_core@development"
+    "PredictiveEcology/CBM_core@development",
+    file.path("PredictiveEcology/scfm@development/modules",
+              c("scfmDataPrep",
+                "scfmIgnition", "scfmEscape", "scfmSpread",
+                "scfmDiagnostics"))
   ),
   packages = c("googledrive", 'RCurl', 'XML', "stars", "httr2"),
   # Study area is RIA
@@ -72,9 +75,16 @@ out <- SpaDES.project::setupProject(
     sppEquiv <- LandR::sppEquivalencies_CA[LandR %in% species]
     sppEquiv <- sppEquiv[KNN != "" & LANDIS_traits != ""] #avoid a bug with shore pine
   },
+  disturbanceMeta = data.table(eventID = 1,
+                               disturbance_type_id = 1,
+                               wholeStand = 1,
+                               name = "Wildfire",
+                               sourceValue = 1,
+                               sourceDelay = 0,
+                               sourceObjectName = "rstCurrentBurn"),
   outputs = as.data.frame(expand.grid(
     objectName = c("cbmPools", "NPP"),
-    saveTime   = sort(c(times$start, times$start + c(1:(times$end - times$start))))
+    saveTime = seq(from = times$start, to = times$end, by = 10)
   )),
   params = list(
     .globals = list(
@@ -83,10 +93,6 @@ out <- SpaDES.project::setupProject(
       sppEquivCol = 'LandR',
       .studyAreaName = "NWT",
       dataYear = 2011
-    ),
-    historicalDisturbances = list(
-      disturbanceSource = "CanLaD",
-      disturbanceTypes = "wildfire"
     ),
     CBM_core = list(
       skipPrepareCBMvars = TRUE
@@ -110,6 +116,12 @@ out <- SpaDES.project::setupProject(
       maxAge = 200,
       .plots = "png",
       .useCache = "generateData"
+    ),
+    scfmDataPrep = list(targetN = 4000,
+                        flammabilityThreshold = 0.05,
+                        dataYear = 2020,
+                        .useParallelFireRegimePolys = FALSE,
+                        fireEpoch = c(1971, 2020)
     )
   )
 )
