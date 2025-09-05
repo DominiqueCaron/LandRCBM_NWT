@@ -23,6 +23,19 @@ rm(nwt, sa, taigaPlains)
 studyAreaHa <- st_area(studyArea) |> set_units("ha")
 
 ## NTEMS LandCover:
+# 0   = Unclassified
+# 20  = water
+# 31  = snow_ice
+# 32  = rock_rubble
+# 33  = exposed_barren_land
+# 40  = bryoids
+# 50  = shrubs
+# 80  = wetland
+# 81  = wetland-treed
+# 100 = herbs
+# 210 = coniferous
+# 220 = broadleaf
+# 230 = mixedwood
 LandCover <- prepInputs(
   url = "https://opendata.nfis.org/downloads/forest_change/CA_forest_VLCE2_2022.zip",
   maskTo = studyArea,
@@ -31,28 +44,68 @@ LandCover <- prepInputs(
   overwrite = TRUE
 ) |> Cache()
 # Count frequency of each value (excluding NAs)
-freq_table <- freq(LandCover)
+LC_table <- freq(LandCover)
 
 # Get proportions
-freq_table$proportion <- freq_table$count / sum(freq_table$count)
+LC_table$proportion <- LC_table$count / sum(LC_table$count)
+
+# Area
+LC_area <- LC_table$proportion * studyAreaHa
+ForestAreaHa <- sum(LC_area[LC_table$value %in% c(210, 220, 230)])
 
 # Management area
 managementArea <- prepInputs(
- "~/../Downloads/Canada_MFv2020/Canada_MFv2020.tif",
+  "~/../Downloads/MFUF_26july2016/MFUF_26july2016.shp",
   maskTo = studyArea,
   cropTo = studyArea,
+  projectTo = LandCover,
+  fun = terra::vect,
+  destinationPath = "inputs",
+  overwrite = TRUE
+) |> Cache()
+
+# Extract raster values by polygon
+# Managed forest raster
+LandCoverManaged <- mask(LandCover, managementArea[managementArea$ManagedFor == "Managed Forest", ])
+ManagedForest <- ifel(LandCoverManaged %in% c(210, 220, 230), 1, NA)
+ManagedForestAreaHa <- sum(ManagedForest[] == 1 , na.rm = TRUE) * prod(res(ManagedForest)) / 10^4
+
+# Unmanaged forest raster
+LandCoverUnmanaged <- mask(LandCover, managementArea[managementArea$ManagedFor == "Non Managed Forest", ])
+UnmanagedForest <- ifel(LandCoverUnmanaged %in% c(210, 220, 230), 1, NA)
+UnmanagedForestAreaHa <- sum(UnmanagedForest[] == 1, na.rm = TRUE) * prod(res(UnmanagedForest)) / 10^4
+
+rm(LandCoverManaged, LandCoverUnmanaged, managementArea)
+
+# Management area
+managementAreaManagedForest <- prepInputs(
+ "~/../Downloads/Canada_MFv2020/Canada_MFv2020.tif",
+  cropTo = ManagedForest,
+ maskTo = ManagedForest,
   destinationPath = "inputs",
  fun = terra::rast,
   overwrite = TRUE
 ) |> Cache()
 # Count frequency of each value (excluding NAs)
-freq_table <- freq(managementArea)
+managementAreaManagedForest_freq <- freq(managementAreaManagedForest)
 
 # Get proportions
-freq_table$proportion <- freq_table$count / sum(freq_table$count)
+managementAreaManagedForest_freq$proportion <- managementAreaManagedForest_freq$count / sum(managementAreaManagedForest_freq$count)
 
-# get area in ha for each management  
-area <- expanse(managementArea, unit = "ha", byValue = TRUE)
+# Management area
+managementAreaUnmanagedForest <- prepInputs(
+  "~/../Downloads/Canada_MFv2020/Canada_MFv2020.tif",
+  cropTo = UnmanagedForest,
+  maskTo = UnmanagedForest,
+  destinationPath = "inputs",
+  fun = terra::rast,
+  overwrite = TRUE
+) |> Cache()
+# Count frequency of each value (excluding NAs)
+managementAreaUnmanagedForest_freq <- freq(managementAreaUnmanagedForest)
+
+# Get proportions
+managementAreaUnmanagedForest_freq$proportion <- managementAreaUnmanagedForest_freq$count / sum(managementAreaUnmanagedForest_freq$count)
 
 # Disturbances (get the mean per year x type; sample every 5 years between 1985 and 2024):
 disturbances <- c()

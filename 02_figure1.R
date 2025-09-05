@@ -80,37 +80,38 @@ rcl <- data.frame(is = c(0, 20, 31, 32, 33, 40, 50, 80, 81, 100, 210, 220, 230),
                   becomes = c(1, 2, 1, 1, 1, 1, 1, 3, 3, 1, 4, 5, 6))
 LandCover <- classify(LandCover, rcl = rcl)
 cls <- data.frame(id=c(1:6), 
-                  cover=c("Nonforested", 
+                  cover=c("Non-forested land", 
                           "Water", 
                           "Wetland", 
                           "Coniferous forest", 
                           "Broadleaf forest", 
                           "Mixedwood forest")
                   )
+cls <- cls[c(4, 5, 6, 3, 2, 1),]
 levels(LandCover) <- cls
 
 ## Add management areas:
 managementArea <- prepInputs(
-  "~/../Downloads/Canada_MFv2020/Canada_MFv2020.tif",
-  maskTo = st_buffer(studyArea, -125),
-  cropTo = st_buffer(studyArea, -125),
-  fun = terra::rast,
+  "~/../Downloads/MFUF_26july2016/MFUF_26july2016.shp",
+  maskTo = studyArea,
+  cropTo = studyArea,
+  fun = sf::st_read,
   overwrite = TRUE
 ) |> Cache()
-rcl_MA <- data.frame(is = c(0, 11, 12, 13, 20, 31, 32, 33, 40, 50, 100),
-                     becomes = c(NaN, 1, 1, NaN, NaN, NaN, NaN, NaN ,NaN, NaN, NaN))
-managementArea  <- classify(managementArea, rcl = rcl_MA)
-cls_MA <- data.frame(id=c(1), 
-                     management =c("Managed Forest"))
-levels(managementArea) <- cls_MA
-
-managementArea_poly <- as.polygons(managementArea) |> st_as_sf()
-
+# rcl_MA <- data.frame(is = c(0, 11, 12, 13, 20, 31, 32, 33, 40, 50, 100),
+#                      becomes = c(NaN, 1, 1, NaN, NaN, NaN, NaN, NaN ,NaN, NaN, NaN))
+# managementArea  <- classify(managementArea, rcl = rcl_MA)
+# cls_MA <- data.frame(id=c(1), 
+#                      management =c("Managed Forest"))
+# levels(managementArea) <- cls_MA
+# 
+# managementArea_poly <- as.polygons(managementArea) |> st_as_sf()
+managementArea_poly <- managementArea[managementArea$ManagedFor == "Managed Forest", ]
 
 ggplot() +
   geom_spatraster(data = LandCover, aes(fill = cover)) +
-  scale_fill_manual(values = c("Nonforested" = "#d2cdc0", "Water"= "#5475a8", "Wetland" = "#64b3d5", "Coniferous forest" = "#38814e", "Broadleaf forest" = "#85c77e", "Mixedwood forest" = "#d4e7b0"), na.translate = FALSE) +
-  geom_sf(data = managementArea_poly, aes(color = management), fill = "transparent", linewidth = 1, linetype = "dashed") +
+  scale_fill_manual(values = c("Non-forested land" = "#d2cdc0", "Water"= "#5475a8", "Wetland" = "#64b3d5", "Coniferous forest" = "#38814e", "Broadleaf forest" = "#85c77e", "Mixedwood forest" = "#d4e7b0"), na.translate = FALSE) +
+  geom_sf(data = managementArea_poly, aes(color = ManagedFor), fill = "darkred", alpha = 0.25, linewidth = 0.5) +
   scale_color_manual(values = c("Managed Forest" = "darkred")) +
   geom_sf(data = studyArea,
           color = "grey10",
@@ -126,7 +127,7 @@ ggdraw(
     geom_spatraster(data = LandCover, aes(fill = cover)) +
     scale_fill_manual(
       values = c(
-        "Nonforested" = "#d2cdc0",
+        "Non-forested land" = "#d2cdc0",
         "Water" = "#5475a8",
         "Wetland" = "#64b3d5",
         "Coniferous forest" = "#38814e",
@@ -138,20 +139,24 @@ ggdraw(
     ) +
     geom_sf(
       data = managementArea_poly,
-      aes(color = management),
-      fill = "transparent",
-      linewidth = 1,
-      linetype = "dashed"
+      aes(color = ManagedFor),
+      fill = "darkred",
+      alpha = 0.2,
+      linewidth = 0.5
     ) +
     scale_color_manual(values = c("Managed Forest" = "darkred"), name = NULL) +
     geom_sf(
       data = studyArea,
       color = "grey10",
       fill = "transparent",
-      linewidth = 1
+      linewidth = 0.75
     ) +
     coord_sf(expand = F) +
-    annotation_scale() + 
+    annotation_scale(width_hint = 0.2, text_cex = 1) + 
+    guides(
+      fill = guide_legend(order = 1),
+      color = guide_legend(order = 2)
+    ) +
     theme(
       panel.background = element_blank(),
       panel.border = element_rect(fill = NA, colour = "black")
@@ -160,8 +165,8 @@ ggdraw(
   draw_plot({
     p
   },
-  x = 0.44,
-  y = 0.79,
+  x = 0.42,
+  y = 0.8,
   width = 0.20,
   height = 0.19)
-ggsave("outputs/pubFigures/figure1.png")
+ggsave("pubFigures/figure1.png", width = 2244, height = 1683, units = "px", dpi = 300)
