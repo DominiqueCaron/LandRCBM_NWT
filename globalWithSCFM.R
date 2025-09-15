@@ -12,7 +12,7 @@ if (!require("SpaDES.project")){
 
 out <- SpaDES.project::setupProject(
   paths = list(projectPath = getwd(),
-               inputPath = "inputs",
+               inputPath = "~/inputs",
                outputPath = "outputs/withSCFM",
                cachePath = "cache"),
   options = options(
@@ -39,18 +39,18 @@ out <- SpaDES.project::setupProject(
                 "scfmDiagnostics"))
   ),
   packages = c("googledrive", 'RCurl', 'XML', "stars", "httr2"),
-  # Study area is RIA
+  # Study area is the taiga plains of northwest territories
   studyArea = {
     # northwest territories boundaries
     nwt <- reproducible::prepInputs(url = "https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/files-fichiers/lpr_000a21a_e.zip",
                                     destinationPath = "inputs")
     nwt <- nwt[nwt$PRENAME == "Northwest Territories",]
     # ecozone: Taiga plains
-    boreal <- reproducible::prepInputs(url = "http://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
+    taigaPlains <- reproducible::prepInputs(url = "http://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
                                        destinationPath = "inputs", projectTo = nwt)
-    boreal <- boreal[boreal$ECOZONE == 4, ]
-    sa <- reproducible::postProcessTo(boreal, cropTo = nwt, maskTo = nwt) |> 
-      reproducible::Cache() |> 
+    taigaPlains <- taigaPlains[taigaPlains$ECOZONE == 4, ]
+    sa <- reproducible::postProcessTo(taigaPlains, cropTo = nwt, maskTo = nwt) |>
+      reproducible::Cache() |>
       sf::st_union() |>
       sf::st_as_sf() |> sf::st_buffer(-125)
     sa
@@ -82,10 +82,6 @@ out <- SpaDES.project::setupProject(
                                sourceValue = 1,
                                sourceDelay = 0,
                                sourceObjectName = "rstCurrentBurn"),
-  outputs = as.data.frame(expand.grid(
-    objectName = c("cbmPools", "NPP"),
-    saveTime = seq(from = times$start, to = times$end, by = 10)
-  )),
   params = list(
     .globals = list(
       .plots = c("png"),
@@ -95,7 +91,8 @@ out <- SpaDES.project::setupProject(
       dataYear = 2011
     ),
     CBM_core = list(
-      skipPrepareCBMvars = TRUE
+      skipPrepareCBMvars = TRUE,
+      .saveInterval = 10
     ),
     Biomass_borealDataPrep = list(
       subsetDataBiomassModel = 50

@@ -12,15 +12,14 @@ if (!require("SpaDES.project")){
 
 out <- SpaDES.project::setupProject(
   paths = list(projectPath = getwd(),
-               inputPath = "inputs",
+               inputPath = "~/inputs",
                outputPath = "outputs",
                cachePath = "cache"),
   options = options(
     repos = c(repos = repos),
     Require.cloneFrom = Sys.getenv("R_LIBS_USER"),
     spades.moduleCodeChecks = FALSE,
-    spades.recoveryMode = FALSE,
-    reproducible.useMemoise = TRUE),
+    spades.recoveryMode = FALSE),
   times = list(start = 1990, end = 2024),
   modules = c(
     "PredictiveEcology/Biomass_borealDataPrep@development",
@@ -36,18 +35,18 @@ out <- SpaDES.project::setupProject(
     "PredictiveEcology/CBM_core@development"
   ),
   packages = c("googledrive", 'RCurl', 'XML', "stars", "httr2"),
-  # Study area is RIA
+  # Study area is the taiga plains of northwest territories
   studyArea = {
     # northwest territories boundaries
     nwt <- reproducible::prepInputs(url = "https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/files-fichiers/lpr_000a21a_e.zip",
                                     destinationPath = "inputs")
     nwt <- nwt[nwt$PRENAME == "Northwest Territories",]
     # ecozone: Taiga plains
-    boreal <- reproducible::prepInputs(url = "http://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
+    taigaPlains <- reproducible::prepInputs(url = "http://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
                                        destinationPath = "inputs", projectTo = nwt)
-    boreal <- boreal[boreal$ECOZONE == 4, ]
-    sa <- reproducible::postProcessTo(boreal, cropTo = nwt, maskTo = nwt) |> 
-      reproducible::Cache() |> 
+    taigaPlains <- taigaPlains[taigaPlains$ECOZONE == 4, ]
+    sa <- reproducible::postProcessTo(taigaPlains, cropTo = nwt, maskTo = nwt) |>
+      reproducible::Cache() |>
       sf::st_union() |>
       sf::st_as_sf() |> sf::st_buffer(-125)
     sa
@@ -72,10 +71,6 @@ out <- SpaDES.project::setupProject(
     sppEquiv <- LandR::sppEquivalencies_CA[LandR %in% species]
     sppEquiv <- sppEquiv[KNN != "" & LANDIS_traits != ""] #avoid a bug with shore pine
   },
-  outputs = as.data.frame(expand.grid(
-    objectName = c("cbmPools", "NPP"),
-    saveTime   = sort(c(times$start, times$start + c(1:(times$end - times$start))))
-  )),
   params = list(
     .globals = list(
       .plots = c("png"),
