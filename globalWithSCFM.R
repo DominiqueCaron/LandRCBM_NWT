@@ -13,7 +13,7 @@ if (!require("SpaDES.project")){
 out <- SpaDES.project::setupProject(
   paths = list(projectPath = getwd(),
                inputPath = "~/inputs",
-               outputPath = "outputs/withSCFM",
+               outputPath = "outputs/withSCFM999perc20",
                cachePath = "cache"),
   options = options(
     repos = c(repos = repos),
@@ -21,7 +21,7 @@ out <- SpaDES.project::setupProject(
     spades.moduleCodeChecks = FALSE,
     spades.recoveryMode = FALSE,
     reproducible.useMemoise = TRUE),
-  times = list(start = 1990, end = 2490),
+  times = list(start = 2020, end = 2050),
   modules = c(
     "PredictiveEcology/Biomass_borealDataPrep@development",
     "PredictiveEcology/Biomass_speciesFactorial@development",
@@ -41,13 +41,15 @@ out <- SpaDES.project::setupProject(
   packages = c("googledrive", 'RCurl', 'XML', "stars", "httr2"),
   # Study area is the taiga plains of northwest territories
   studyArea = {
+    targetCRS <- terra::crs(terra::rast("~/inputs/SCANFI_att_age_S_2020_v1_1.tif"))
     # northwest territories boundaries
     nwt <- reproducible::prepInputs(url = "https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/files-fichiers/lpr_000a21a_e.zip",
-                                    destinationPath = "inputs")
+                                    destinationPath = "inputs",
+                                    projectTo = targetCRS)
     nwt <- nwt[nwt$PRENAME == "Northwest Territories",]
     # ecozone: Taiga plains
     taigaPlains <- reproducible::prepInputs(url = "http://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
-                                       destinationPath = "inputs", projectTo = nwt)
+                                            destinationPath = "inputs", projectTo = nwt)
     taigaPlains <- taigaPlains[taigaPlains$ECOZONE == 4, ]
     sa <- reproducible::postProcessTo(taigaPlains, cropTo = nwt, maskTo = nwt) |>
       reproducible::Cache() |>
@@ -58,7 +60,7 @@ out <- SpaDES.project::setupProject(
   studyArea_biomassParam = studyArea,
   rasterToMatch = {
     sa <- terra::vect(studyArea)
-    rtm <- terra::rast(sa, res = c(250, 250))
+    rtm <- terra::rast(sa, res = c(240, 240))
     terra::crs(rtm) <- terra::crs(sa)
     sa$id <- 1
     rtm <- terra::rasterize(sa, rtm, field = "id", touches = FALSE)
@@ -87,15 +89,15 @@ out <- SpaDES.project::setupProject(
       .plots = c("png"),
       .plotInterval = 10,
       sppEquivCol = 'LandR',
-      .studyAreaName = "NWT",
-      dataYear = 2011
+      .studyAreaName = "NWT"
     ),
     CBM_core = list(
       skipPrepareCBMvars = TRUE,
       .saveInterval = 10
     ),
     Biomass_borealDataPrep = list(
-      subsetDataBiomassModel = 50
+      subsetDataBiomassModel = 50,
+      adjustAgeAndLongevity = TRUE
     ),
     Biomass_speciesFactorial = list(
       .plots = NULL, #"pdf",
@@ -110,7 +112,7 @@ out <- SpaDES.project::setupProject(
     ),
     Biomass_yieldTables = list(
       moduleNameAndBranch = "PredictiveEcology/Biomass_core@development",
-      maxAge = 200,
+      maxAge = 150,
       .plots = "png",
       .useCache = "generateData"
     ),
