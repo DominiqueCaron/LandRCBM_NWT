@@ -1,6 +1,7 @@
 ###
 ###
 # This script runs LandR and CBM in NWT.
+# Uses only fire simulated with scfm between 2020 and 2520.
 ###
 ###
 
@@ -13,27 +14,30 @@ if (!require("SpaDES.project")){
 out <- SpaDES.project::setupProject(
   paths = list(projectPath = getwd(),
                inputPath = "~/inputs",
-               outputPath = "outputs/withAgeAdjustment",
+               outputPath = "outputs/withSCFMandAdjustment",
                cachePath = "cache"),
   options = options(
     repos = c(repos = repos),
     Require.cloneFrom = Sys.getenv("R_LIBS_USER"),
     spades.moduleCodeChecks = FALSE,
-    spades.recoveryMode = FALSE),
-  times = list(start = 2000, end = 2024),
+    spades.recoveryMode = FALSE,
+    reproducible.useMemoise = FALSE),
+  times = list(start = 2020, end = 2520),
   modules = c(
     "PredictiveEcology/Biomass_borealDataPrep@development",
     "PredictiveEcology/Biomass_speciesFactorial@development",
     "PredictiveEcology/Biomass_speciesParameters@development",
     "PredictiveEcology/CBM_defaults@development",
-    "DominiqueCaron/historicalDisturbances@main",
     "PredictiveEcology/Biomass_regeneration@development",
     "PredictiveEcology/Biomass_yieldTables@main",
     "PredictiveEcology/Biomass_core@development",
     "PredictiveEcology/CBM_dataPrep@development",
     "PredictiveEcology/LandRCBM_split3pools@main",
     "PredictiveEcology/CBM_core@development",
-    "ianmseddy/LandR_reforestation@master"
+    file.path("PredictiveEcology/scfm@development/modules",
+              c("scfmDataPrep",
+                "scfmIgnition", "scfmEscape", "scfmSpread",
+                "scfmDiagnostics"))
   ),
   packages = c("googledrive", 'RCurl', 'XML', "stars", "httr2"),
   # Study area is the taiga plains of northwest territories
@@ -76,19 +80,24 @@ out <- SpaDES.project::setupProject(
     sppEquiv <- LandR::sppEquivalencies_CA[LandR %in% species]
     sppEquiv <- sppEquiv[KNN != "" & LANDIS_traits != ""] #avoid a bug with shore pine
   },
+  disturbanceMeta = data.table(eventID = 1,
+                               disturbance_type_id = 1,
+                               wholeStand = 1,
+                               name = "Wildfire",
+                               sourceValue = 1,
+                               sourceDelay = 0,
+                               sourceObjectName = "rstCurrentBurn"),
   params = list(
     .globals = list(
       .plots = c("png"),
       .plotInterval = 10,
       sppEquivCol = 'LandR',
-      .studyAreaName = "NWT"
-    ),
-    historicalDisturbances = list(
-      disturbanceSource = "CanLaD",
-      disturbanceTypes = c("wildfire", "harvesting")
+      .studyAreaName = "NWT",
+      dataYear = 2020
     ),
     CBM_core = list(
-      skipPrepareCBMvars = TRUE
+      skipPrepareCBMvars = TRUE,
+      .saveInterval = 10
     ),
     Biomass_borealDataPrep = list(
       subsetDataBiomassModel = 50,
@@ -110,6 +119,12 @@ out <- SpaDES.project::setupProject(
       maxAge = 150,
       .plots = "png",
       .useCache = "generateData"
+    ),
+    scfmDataPrep = list(targetN = 4000,
+                        flammabilityThreshold = 0.05,
+                        .useParallelFireRegimePolys = FALSE,
+                        fireEpoch = c(1971, 2020),
+                        fireRegimePolysType = "FRU"
     )
   )
 )
