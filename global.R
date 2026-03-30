@@ -13,16 +13,16 @@ if (!require("SpaDES.project")){
 out <- SpaDES.project::setupProject(
   paths = list(projectPath = getwd(),
                inputPath = "~/inputs",
-               outputPath = "outputs/noAgeAdjustment",
+               outputPath = "outputs/withAgeAdjustment",
                cachePath = "cache"),
   options = options(
     repos = c(repos = repos),
     Require.cloneFrom = Sys.getenv("R_LIBS_USER"),
     spades.moduleCodeChecks = FALSE,
     spades.recoveryMode = FALSE),
-  times = list(start = 1990, end = 2024),
+  times = list(start = 2000, end = 2024),
   modules = c(
-    "DominiqueCaron/Biomass_borealDataPrep@adjust-age-to-longevity",
+    "PredictiveEcology/Biomass_borealDataPrep@development",
     "PredictiveEcology/Biomass_speciesFactorial@development",
     "PredictiveEcology/Biomass_speciesParameters@development",
     "PredictiveEcology/CBM_defaults@development",
@@ -32,7 +32,8 @@ out <- SpaDES.project::setupProject(
     "PredictiveEcology/Biomass_core@development",
     "PredictiveEcology/CBM_dataPrep@development",
     "PredictiveEcology/LandRCBM_split3pools@main",
-    "PredictiveEcology/CBM_core@development"
+    "PredictiveEcology/CBM_core@development",
+    "ianmseddy/LandR_reforestation@master"
   ),
   packages = c("googledrive", 'RCurl', 'XML', "stars", "httr2"),
   # Study area is the taiga plains of northwest territories
@@ -45,12 +46,12 @@ out <- SpaDES.project::setupProject(
     nwt <- nwt[nwt$PRENAME == "Northwest Territories",]
     # ecozone: Taiga plains
     taigaPlains <- reproducible::prepInputs(url = "http://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
-                                       destinationPath = "inputs", projectTo = nwt)
+                                            destinationPath = "inputs", projectTo = nwt)
     taigaPlains <- taigaPlains[taigaPlains$ECOZONE == 4, ]
     sa <- reproducible::postProcessTo(taigaPlains, cropTo = nwt, maskTo = nwt) |>
       reproducible::Cache() |>
       sf::st_union() |>
-      sf::st_as_sf() |> sf::st_buffer(-125)
+      sf::st_as_sf()
     sa
   },
   studyArea_biomassParam = studyArea,
@@ -66,6 +67,8 @@ out <- SpaDES.project::setupProject(
     masterRaster = rasterToMatch
     masterRaster
   },
+  adminLocator = "Northwest Territories",
+  ecoLocator = 4,
   sppEquiv = {
     speciesInStudy <- LandR::speciesInStudyArea(studyArea,
                                                 dPath = "inputs")
@@ -79,17 +82,17 @@ out <- SpaDES.project::setupProject(
       .plotInterval = 10,
       sppEquivCol = 'LandR',
       .studyAreaName = "NWT"
-      ),
+    ),
     historicalDisturbances = list(
       disturbanceSource = "CanLaD",
-      disturbanceTypes = "wildfire"
+      disturbanceTypes = c("wildfire", "harvesting")
     ),
     CBM_core = list(
       skipPrepareCBMvars = TRUE
     ),
     Biomass_borealDataPrep = list(
       subsetDataBiomassModel = 50,
-      adjustAgeAndLongevity = FALSE
+      adjustAgeAndLongevity = TRUE
     ),
     Biomass_speciesFactorial = list(
       .plots = NULL, #"pdf",
@@ -98,7 +101,7 @@ out <- SpaDES.project::setupProject(
     ),
     Biomass_speciesParameters = list(
       .plots = "png",
-      standAgesForFitting = c(0, 125),
+      standAgesForFitting = c(0, 100),
       .useCache = c(".inputObjects", "init"),
       speciesFittingApproach = "focal"
     ),

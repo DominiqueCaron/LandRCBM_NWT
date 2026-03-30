@@ -13,15 +13,15 @@ if (!require("SpaDES.project")){
 out <- SpaDES.project::setupProject(
   paths = list(projectPath = getwd(),
                inputPath = "~/inputs",
-               outputPath = "outputs/withSCFM999perc20",
+               outputPath = "outputs/withSCFMandAdjustment",
                cachePath = "cache"),
   options = options(
     repos = c(repos = repos),
     Require.cloneFrom = Sys.getenv("R_LIBS_USER"),
     spades.moduleCodeChecks = FALSE,
     spades.recoveryMode = FALSE,
-    reproducible.useMemoise = TRUE),
-  times = list(start = 2020, end = 2050),
+    reproducible.useMemoise = FALSE),
+  times = list(start = 2020, end = 2520),
   modules = c(
     "PredictiveEcology/Biomass_borealDataPrep@development",
     "PredictiveEcology/Biomass_speciesFactorial@development",
@@ -54,7 +54,7 @@ out <- SpaDES.project::setupProject(
     sa <- reproducible::postProcessTo(taigaPlains, cropTo = nwt, maskTo = nwt) |>
       reproducible::Cache() |>
       sf::st_union() |>
-      sf::st_as_sf() |> sf::st_buffer(-125)
+      sf::st_as_sf()
     sa
   },
   studyArea_biomassParam = studyArea,
@@ -70,6 +70,8 @@ out <- SpaDES.project::setupProject(
     masterRaster = rasterToMatch
     masterRaster
   },
+  adminLocator = "Northwest Territories",
+  ecoLocator = 4,
   sppEquiv = {
     speciesInStudy <- LandR::speciesInStudyArea(studyArea,
                                                 dPath = "inputs")
@@ -89,7 +91,8 @@ out <- SpaDES.project::setupProject(
       .plots = c("png"),
       .plotInterval = 10,
       sppEquivCol = 'LandR',
-      .studyAreaName = "NWT"
+      .studyAreaName = "NWT",
+      dataYear = 2020
     ),
     CBM_core = list(
       skipPrepareCBMvars = TRUE,
@@ -106,7 +109,7 @@ out <- SpaDES.project::setupProject(
     ),
     Biomass_speciesParameters = list(
       .plots = "png",
-      standAgesForFitting = c(0, 125),
+      standAgesForFitting = c(0, 100),
       .useCache = c(".inputObjects", "init"),
       speciesFittingApproach = "focal"
     ),
@@ -118,9 +121,9 @@ out <- SpaDES.project::setupProject(
     ),
     scfmDataPrep = list(targetN = 4000,
                         flammabilityThreshold = 0.05,
-                        dataYear = 2020,
                         .useParallelFireRegimePolys = FALSE,
-                        fireEpoch = c(1971, 2020)
+                        fireEpoch = c(1971, 2020),
+                        fireRegimePolysType = "FRU"
     )
   )
 )
