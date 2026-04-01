@@ -22,7 +22,7 @@ ggplot(yieldTables, aes(x = age, y = merch, colour = speciesName)) +
   labs(y = "Merchantable biomass (tC/ha)", x = "Stand age (years)", colour = NULL) +
   scale_colour_manual(values = spCols) +
   scale_x_continuous(limits = c(0, NA), expand = c(0, 0)) +
-  scale_y_continuous(limits = c(0, 10), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(0, 15), expand = c(0, 0)) +
   theme_classic(base_size = 12) +
   theme(
     axis.title = element_text(size = 12),

@@ -61,44 +61,99 @@ pixelCarbon <- function(Cpools, key){
   # expand data.table to get 1 row per cohort
   summary_Cpools <- summary_Cpools[match(key$row_idx, Cpools$row_idx),]
   summary_Cpools$pixelIndex <- key$pixelIndex
-  summary_Cpools <- summary_Cpools[,.(AGB_C = sum(AGB_C), BGB_C = sum(BGB_C), DW_C = sum(DW_C), Litter_C = sum(Litter_C), SOM_C = sum(SOM_C)), by = "pixelIndex"]
+  summary_Cpools <- summary_Cpools[,.(AGB_C = sum(AGB_C), BGB_C = sum(BGB_C), DW_C = sum(DW_C), Litter_C = sum(Litter_C), SOM_C = sum(SOM_C), Total_C = sum(Total_C)), by = "pixelIndex"]
   return(summary_Cpools)
 }
 
 summarizeSimulation <- function(CBMOutPath, years, managementForestDT){
-  carbonComponents <- c("AGB_C", "BGB_C", "DW_C", "Litter_C", "SOM_C")
-  carbonComponentsLabs <- c("Aboveground biomass", "Belowground biomass", "Dead wood", "Litter", "Soil organic matter")
+  fullPath <- file.path(CBMOutPath, "spadesCBMdb", "data")
+  carbonComponents <- c("AGB_C", "BGB_C", "DW_C", "Litter_C", "SOM_C", "Total_C")
+  carbonComponentsLabs <- c("Aboveground biomass", "Belowground biomass", "Dead wood", "Litter", "Soil organic matter", "Total carbon")
   Cdynamic_dt <- data.table()
-  for (year in years){
-    quantiles <- c(0.05, 0.25, 0.5, 0.75, 0.95)
-    key_current <- qs2::qd_read(file.path(CBMOutPath, paste0(year,"_key.qs2")))
-    carbonPools_current <- qs2::qd_read(file.path(CBMOutPath, paste0(year,"_pools.qs2")))
-    pixelCarbonPools <- pixelCarbon(Cpools = carbonPools_current, key = key_current)
+  for (year in years) {
+    key_current <- qs2::qd_read(file.path(fullPath, paste0(year, "_key.qs2")))
+    carbonPools_current <- qs2::qd_read(file.path(
+      fullPath,
+      paste0(year, "_pools.qs2")
+    ))
+    pixelCarbonPools <- pixelCarbon(
+      Cpools = carbonPools_current,
+      key = key_current
+    )
     pixelCarbonPools <- merge(pixelCarbonPools, managementForestDT)
-    for (management in c(1,2)){
-      dt <- pixelCarbonPools[pixelCarbonPools$OBJECTID == management,]
-      AGB_quantiles <- quantile(dt$AGB_C, probs = quantiles)
-      BGB_quantiles <- quantile(dt$BGB_C, probs = quantiles)
-      DW_quantiles <- quantile(dt$DW_C, probs = quantiles)
-      Litter_quantiles <- quantile(dt$Litter_C, probs = quantiles)
-      SOM_quantiles <- quantile(dt$SOM_C, probs = quantiles)
-      current_dt <- data.table(
-        year = year,
-        management = management,
-        component = carbonComponents,
-        q0_05 = c(AGB_quantiles[1], BGB_quantiles[1], DW_quantiles[1], Litter_quantiles[1], SOM_quantiles[1]),
-        q0_25 = c(AGB_quantiles[2], BGB_quantiles[2], DW_quantiles[2], Litter_quantiles[2], SOM_quantiles[2]),
-        q0_50 = c(AGB_quantiles[3], BGB_quantiles[3], DW_quantiles[3], Litter_quantiles[3], SOM_quantiles[3]),
-        q0_75 = c(AGB_quantiles[4], BGB_quantiles[4], DW_quantiles[4], Litter_quantiles[4], SOM_quantiles[4]),
-        q0_95 = c(AGB_quantiles[5], BGB_quantiles[5], DW_quantiles[5], Litter_quantiles[5], SOM_quantiles[5])
-      )
-      Cdynamic_dt <- rbind(
-        Cdynamic_dt,
-        current_dt
-        )
-    }
-
+    dt_long <- melt(
+      pixelCarbonPools,
+      id.vars = c("pixelIndex", "OBJECTID"),
+      measure.vars = carbonComponents,
+      variable.name = "component",
+      value.name = "value"
+    )
+    stats_dt <- dt_long[, .(mean = mean(value, na.rm = TRUE),
+      median = median(value, na.rm = TRUE),
+      sd = sd(value, na.rm = TRUE),
+      nPixels = .N),
+      by = .(management = OBJECTID, component)
+    ]
+    stats_dt[, year := year]
+    setcolorder(
+      stats_dt,
+      c("year", "management", "component", "mean", "median", "sd", "nPixels")
+    )
+    Cdynamic_dt <- rbind(Cdynamic_dt, stats_dt, use.names = TRUE, fill = TRUE)
   }
   Cdynamic_dt$component <- factor(Cdynamic_dt$component, levels = carbonComponents, carbonComponentsLabs)
+  return(Cdynamic_dt)
+}
+
+pixelFlux <- function(emissions, key){
+  setDT(emissions)
+  # summarise carbon per group
+  emissions[, CO2 := DisturbanceBioCO2Emission + DecayDOMCO2Emission + DisturbanceDOMCO2Emission]
+  emissions[, CH4 := DisturbanceBioCH4Emission + DisturbanceDOMCH4Emission]
+  emissions[, CO  := DisturbanceBioCOEmission + DisturbanceDOMCOEmission]
+  emissions[, Emissions := CO2 + CH4 + CO]
+
+  # expand data.table to get 1 row per cohort
+  emissions <- emissions[match(key$row_idx, emissions$row_idx),]
+  emissions$pixelIndex <- key$pixelIndex
+  summary_emissions <- emissions[, .(pixelIndex, CO2, CH4, CO, Emissions)]
+  return(summary_emissions)
+}
+
+summarizeFluxes <- function(CBMOutPath, years, managementForestDT){
+  fullPath <- file.path(CBMOutPath, "spadesCBMdb", "data")
+  Cdynamic_dt <- data.table()
+  for (year in years) {
+    key_current <- qs2::qd_read(file.path(fullPath, paste0(year, "_key.qs2")))
+    carbonFlux_current <- qs2::qd_read(file.path(
+      fullPath,
+      paste0(year, "_flux.qs2")
+    ))
+    pixelCarbonFlux <- pixelFlux(
+      emissions = carbonFlux_current,
+      key = key_current
+    )
+    pixelCarbonFlux <- merge(pixelCarbonFlux, managementForestDT)
+
+    dt_long <- melt(
+      pixelCarbonFlux,
+      id.vars = c("pixelIndex", "OBJECTID"),
+      measure.vars = c("CO2", "CH4", "CO", "Emissions"),
+      variable.name = "component",
+      value.name = "value"
+    )
+    stats_dt <- dt_long[, .(mean = mean(value, na.rm = TRUE),
+      median = median(value, na.rm = TRUE),
+      sd = sd(value, na.rm = TRUE),
+      nPixels = .N),
+      by = .(management = OBJECTID, component)
+    ]
+    stats_dt[, year := year]
+    setcolorder(
+      stats_dt,
+      c("year", "management", "component", "mean", "median", "sd", "nPixels")
+    )
+    Cdynamic_dt <- rbind(Cdynamic_dt, stats_dt, use.names = TRUE, fill = TRUE)
+  }
   return(Cdynamic_dt)
 }

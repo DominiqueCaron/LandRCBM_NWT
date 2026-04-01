@@ -1,13 +1,12 @@
 # Code to create figure 3: yield tables for 6 pixels in the NWT.
-library(qs2)
 library(terra)
 library(ggplot2)
 library(patchwork)
 
-outputPath <- "~/../Downloads/LandRCBM_NWT_historical/"
-yieldTableDT <- qs_read(file.path(outputPath, "yieldTablesCumulative.qs"))
-yieldTableId <- qs_read(file.path(outputPath, "yieldTablesId.qs"))
-yieldTableMap <- rast(file.path(outputPath, "rasterToMatch.tif"))
+outputPath <- "~/../Downloads/historicalDisturbances/"
+yieldTableDT <- readRDS(file.path(outputPath, "yieldTablesCumulative_year2024.rds"))
+yieldTableId <- readRDS(file.path(outputPath, "yieldTablesId_year2024.rds"))
+yieldTableMap <- rast(file.path(outputPath, "rasterToMatch_year2024.tif"))
 
 yieldTableMap[yieldTableId$pixelIndex] <- yieldTableId$yieldTableIndex
 
