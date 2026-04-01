@@ -1,7 +1,6 @@
 ###
 ###
 # This script runs LandR and CBM in NWT.
-# Uses only fire simulated with scfm between 2020 and 2520.
 ###
 ###
 
@@ -14,7 +13,7 @@ if (!require("SpaDES.project")){
 out <- SpaDES.project::setupProject(
   paths = list(projectPath = getwd(),
                inputPath = "~/inputs",
-               outputPath = "outputs/withSCFMandAdjustment",
+               outputPath = "outputs/SCFM",
                cachePath = "cache"),
   options = options(
     repos = c(repos = repos),
@@ -38,6 +37,12 @@ out <- SpaDES.project::setupProject(
               c("scfmDataPrep",
                 "scfmIgnition", "scfmEscape", "scfmSpread",
                 "scfmDiagnostics"))
+  ),
+  outputs = data.frame(
+    objectName = c("summaryBySpecies", "rasterToMatch", "disturbanceEvents"),
+    file = c("summaryBySpecies.rds", "rasterToMatch.tif", "disturbanceEvents.rds"),
+    fun = c("saveRDS", "writeRaster", "saveRDS"),
+    package = c("base", "terra", "base")
   ),
   packages = c("googledrive", 'RCurl', 'XML', "stars", "httr2"),
   # Study area is the taiga plains of northwest territories
@@ -101,7 +106,7 @@ out <- SpaDES.project::setupProject(
     ),
     Biomass_borealDataPrep = list(
       subsetDataBiomassModel = 50,
-      adjustAgeAndLongevity = TRUE
+      adjustAgeAndLongevity = FALSE
     ),
     Biomass_speciesFactorial = list(
       .plots = NULL, #"pdf",
@@ -133,4 +138,3 @@ out$loadOrder <- unlist(out$modules)
 
 initOut <- SpaDES.core::simInit2(out)
 simOut <- SpaDES.core::spades(initOut)
-

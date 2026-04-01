@@ -33,8 +33,7 @@ out <- SpaDES.project::setupProject(
     "PredictiveEcology/Biomass_core@development",
     "PredictiveEcology/CBM_dataPrep@development",
     "PredictiveEcology/LandRCBM_split3pools@main",
-    "PredictiveEcology/CBM_core@development",
-    "ianmseddy/LandR_reforestation@master"
+    "PredictiveEcology/CBM_core@development"
   ),
   packages = c("googledrive", 'RCurl', 'XML', "stars", "httr2"),
   # Study area is the taiga plains of northwest territories
@@ -77,6 +76,12 @@ out <- SpaDES.project::setupProject(
     sppEquiv <- LandR::sppEquivalencies_CA[LandR %in% species]
     sppEquiv <- sppEquiv[KNN != "" & LANDIS_traits != ""] #avoid a bug with shore pine
   },
+  outputs = data.frame(
+    objectName = c("yieldTablesId", "summaryBySpecies", "rasterToMatch", "disturbanceEvents", "yieldTablesCumulative"),
+    file = c("yieldTablesId.rds", "summaryBySpecies.rds", "rasterToMatch.tif", "disturbanceEvents.rds", "yieldTablesCumulative.rds"),
+    fun = c("saveRDS", "saveRDS", "writeRaster", "saveRDS", "saveRDS"),
+    package = c("base", "base", "terra", "base", "base")
+  ),
   params = list(
     .globals = list(
       .plots = c("png"),
@@ -86,14 +91,14 @@ out <- SpaDES.project::setupProject(
     ),
     historicalDisturbances = list(
       disturbanceSource = "CanLaD",
-      disturbanceTypes = c("wildfire", "harvesting")
+      disturbanceTypes = "wildfire"
     ),
     CBM_core = list(
       skipPrepareCBMvars = TRUE
     ),
     Biomass_borealDataPrep = list(
       subsetDataBiomassModel = 50,
-      adjustAgeAndLongevity = TRUE
+      adjustAgeAndLongevity = FALSE
     ),
     Biomass_speciesFactorial = list(
       .plots = NULL, #"pdf",
