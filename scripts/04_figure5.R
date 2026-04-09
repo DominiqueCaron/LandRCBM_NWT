@@ -11,6 +11,8 @@ library(tidyterra)
 library(data.table)
 library(ggplot2)
 library(patchwork)
+source("scripts/themes.R")
+source("scripts/utils.R")
 
 outputPath <- "~/repos/LandRCBM_NWT/outputs/SCFM/"
 spadesCBMpath <- file.path(outputPath, "spadesCBMdb", "data")
@@ -35,46 +37,6 @@ managedForest <- data.frame(
   pixelIndex = 1:ncell(managedForest),
   managedForest = managedForest[]
 )
-
-# Shared aesthetics and theme
-base_size <- 12
-line_width <- 0.9
-point_size <- 1.6
-base_theme <- theme_classic(base_size = base_size) +
-  theme(
-    legend.key.width = unit(2, "lines"),
-    axis.title = element_text(size = 10),
-    axis.text = element_text(color = "black"),
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    strip.background = element_rect(fill = "gray97", color = NA),
-    strip.text = element_text(face = "bold", size = 10),
-    plot.margin = margin(6, 6, 6, 6)
-  )
-
-managedForestColor <- "darkred"
-unmanagedForestColor <- "#1b9e77"
-
-fill_scale <- scale_fill_manual(
-  values = c(
-    "Managed forest" = managedForestColor,
-    "Unmanaged forest" = unmanagedForestColor
-  ),
-  guide = "none"
-)
-color_scale <- scale_color_manual(
-  values = c(
-    "Managed forest" = managedForestColor,
-    "Unmanaged forest" = unmanagedForestColor
-  ),
-  name = "Management",
-  guide = "none"
-)
-linetype_scale <- scale_linetype_manual(
-  values = c("Managed forest" = "solid", "Unmanaged forest" = "dashed"),
-  guide = "none"
-)
-
-
 
 # Figure a: map of cumulative fire
 fires <- readRDS(file.path(outputPath, paste0("disturbanceEvents_year", yearEnd, ".rds")))
@@ -118,7 +80,10 @@ fig5b <- ggplot() +
   geom_line(aes(x = year, y = AGB, color = col), data = speciesDynamics) +
   scale_color_manual(values = unique(spCol)) +
   labs(x = "Year", y = "Aboveground biomass (tC/ha)", color = "Species") + 
-  base_theme
+  biplot_theme +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
 
 # Figure c: carbon dynamics
 poolSummary <- summarizeSimulation(
@@ -149,8 +114,11 @@ fig5c <- ggplot(data = poolSummary) +
   color_scale +
   linetype_scale +
   labs(y = "Carbon (tC/ha)", x = "Year") +
-  lims(y = c(0, NA)) +
-  base_theme +
+  lims(y = c(0, NA)) + 
+  biplot_theme +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
   guides(color = guide_legend(override.aes = list(size = 1.1)))
 
 # Panel d: summarizing emissions over years
@@ -176,12 +144,14 @@ fig5d <- ggplot(data = fluxSummary2) +
     ),
     linewidth = line_width
   ) +
-  geom_point(aes(x = year, y = mean, colour = management), size = point_size) +
   color_scale +
   linetype_scale +
   labs(y = "Emissions (tC/ha)", x = "Year") +
-  lims(y = c(0, NA)) +
-  base_theme +
+  lims(y = c(0, NA)) + 
+  biplot_theme +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
   guides(linetype = "none")
 
 # Combine panels and collect legends
@@ -194,5 +164,5 @@ final_plot <- {
   top / bottom + plot_layout(heights = c(1,1))
 }
 
-
-
+ggsave(plot = final_plot, "pubFigures/figure5.png", width = 12, height = 8)
+ggsave(plot = final_plot, "pubFigures/figure5.pdf", width = 12, height = 8)

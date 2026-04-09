@@ -10,13 +10,14 @@ library(data.table)
 library(terra)
 library(ggplot2)
 library(patchwork)
+source("scripts/themes.R")
+source("scripts/utils.R")
 
 # Some setup
 outputPath <- "~/../Downloads/historicalDisturbances/"
-managedForestColor <- "darkred"
-unmanagedForestColor <- "#1b9e77"
 pixelArea <- 240 * 240 / 10000 # pixels are 240mx240m -> ha per pixel
 
+# PixelIndex within the managed forest
 rasterToMatch <- rast(file.path(outputPath, "rasterToMatch_year2024.tif"))
 disturbanceEvents <- readRDS(file.path(
   outputPath,
@@ -54,52 +55,16 @@ standAges[,
   )
 ]
 
-# Shared aesthetics and theme
-base_size <- 12
-line_width <- 0.9
-point_size <- 1.6
-base_theme <- theme_classic(base_size = base_size) +
-  theme(
-    legend.position = "bottom",
-    legend.title = element_blank(),
-    legend.key.height = unit(0.6, "lines"),
-    legend.key.width = unit(2, "lines"),
-    axis.title = element_text(size = 10),
-    axis.text = element_text(color = "black"),
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    strip.background = element_rect(fill = "gray97", color = NA),
-    strip.text = element_text(face = "bold", size = 10),
-    plot.margin = margin(6, 6, 6, 6)
-  )
-
-# Only show a single color legend (Managed vs Unmanaged).
-# Hide fill and linetype legends; use color legend with simple color boxes.
-fill_scale <- scale_fill_manual(
-  values = c(
-    "Managed forest" = managedForestColor,
-    "Unmanaged forest" = unmanagedForestColor
-  ),
-  guide = "none"
-)
-color_scale <- scale_color_manual(
-  values = c(
-    "Managed forest" = managedForestColor,
-    "Unmanaged forest" = unmanagedForestColor
-  ),
-  name = "Management",
-  guide = "none"
-)
-linetype_scale <- scale_linetype_manual(
-  values = c("Managed forest" = "solid", "Unmanaged forest" = "dashed"),
-  guide = "none"
-)
-
 fig4a <- ggplot(standAges, aes(x = age_bin, fill = management)) +
   geom_bar(position = position_dodge(width = 0.9), width = 0.9, colour = NA) +
   fill_scale +
+  scale_y_continuous(labels = scales::label_comma()) +
   labs(x = "Stand age (years)", y = "Number of pixels") +
-  base_theme +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  biplot_theme +
+  theme(
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
 
 # Panel b area burned and area harvested in the managed vs unmanaged forest
 fig4b_dt <- merge(disturbanceEvents, managedForest)
@@ -121,7 +86,7 @@ fig4b_dt$management <- as.factor(ifelse(
 fig4b <- ggplot(
   fig4b_dt,
   aes(
-    x = year,
+    x = year-1,
     y = area,
     color = management,
     linetype = management,
@@ -133,10 +98,13 @@ fig4b <- ggplot(
   color_scale +
   linetype_scale +
   scale_y_continuous(name = "Area burned (ha)", labels = scales::label_comma()) +
-  scale_x_continuous(name = "Year", expand = c(0.01, 0.01)) +
+  scale_x_continuous(name = "Year", limits = c(2000, 2024), breaks = c(2000, 2005, 2010, 2015, 2020), expand = c(0.01, 0.01)) +
   labs(color = "Management", title = NULL) +
-  base_theme +
-  guides(linetype = "none")
+  biplot_theme +
+  theme(
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
 
 # Panel c: carbon stock in aboveground biomass, belowground biomass, and DOM in the managed vs unmanaged forest
 poolSummary <- summarizeSimulation(
@@ -177,6 +145,12 @@ poolSummary2 <- poolSummary2[,
       "Belowground biomass",
       "Dead organic matter",
       "Total carbon"
+    ),
+    labels = c(
+      "Aboveground\nbiomass",
+      "Belowground\nbiomass",
+      "Dead organic\nmatter",
+      "Total carbon"
     )
   )
 ]
@@ -194,10 +168,15 @@ fig4c <- ggplot(data = poolSummary2) +
   ) +
   color_scale +
   linetype_scale +
+  scale_x_continuous(name = "Year", limits = c(2000, 2024), breaks = c(2000, 2005, 2010, 2015, 2020), expand = c(0.01, 0.01)) +
   facet_wrap(~component, nrow = 1, scales = "free_y") +
   labs(y = "Carbon (tC/ha)", x = "Year") +
   lims(y = c(0, NA)) +
-  base_theme +
+  biplot_theme +
+  theme(
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
   guides(color = guide_legend(override.aes = list(size = 1.1)))
 
 # Panel d: summarizing emissions over years
@@ -226,9 +205,14 @@ fig4d <- ggplot(data = fluxSummary2) +
   geom_point(aes(x = year, y = mean, colour = management), size = point_size) +
   color_scale +
   linetype_scale +
+  scale_x_continuous(name = "Year", limits = c(2000, 2024), breaks = c(2000, 2005, 2010, 2015, 2020), expand = c(0.01, 0.01)) +
   labs(y = "Emissions (tC/ha)", x = "Year") +
   lims(y = c(0, NA)) +
-  base_theme +
+  biplot_theme +
+  theme(
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
   guides(linetype = "none")
 
 # Combine panels and collect legends
@@ -241,3 +225,4 @@ final_plot <- (fig4a + ggtitle("(a) Stand age")) +
 
 final_plot
 ggsave(plot = final_plot, "pubFigures/figure4.png", width = 12, height = 8)
+ggsave(plot = final_plot, "pubFigures/figure4.pdf", width = 12, height = 8)

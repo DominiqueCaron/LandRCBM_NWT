@@ -2,6 +2,8 @@
 library(terra)
 library(ggplot2)
 library(patchwork)
+source("scripts/utils.R")
+source("scripts/themes.R")
 
 outputPath <- "~/../Downloads/historicalDisturbances/"
 yieldTableDT <- readRDS(file.path(outputPath, "yieldTablesCumulative_year2024.rds"))
@@ -23,4 +25,5 @@ fig3f <- plotYieldCurves(yieldTableDT, id_to_plot[6])
 
 fig3a + fig3b + fig3c + fig3d + fig3e + fig3f + plot_layout(ncol = 3, nrow = 2, axes = "collect")
 
-ggsave("pubFigures/figure3.png", width = 12)
+ggsave("pubFigures/figure3.png", width = 12, height = 6)
+ggsave("pubFigures/figure3.pdf", width = 12, height = 6)

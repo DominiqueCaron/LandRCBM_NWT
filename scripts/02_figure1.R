@@ -1,5 +1,9 @@
-# Characterizing study area
+# Figure 1: Map of the study area with landcover and management areas.
 Require::Require(c("reproducible", "terra", "sf", "ggplot2", "tidyterra", "cowplot", "ggspatial"))
+source("scripts/themes.R")
+
+xlims <- c(3658201, 8000000)
+ylims <- c(658873, 4500000)
 
 # Base layer
 # read vector data using rnaturalearth
@@ -11,6 +15,7 @@ land <- prepInputs(
   destinationPath = "inputs",
   projectTo = provinces
 )
+land <- st_crop(land, xmin = xlims[1]-500000, xmax = xlims[2]+500000, ymin = ylims[1]-500000, ymax = ylims[2]+500000)
 
 # studya area:
 studyArea = {
@@ -50,20 +55,13 @@ p <- ggplot() +
           alpha = 0.8) +
   
   # crop the whole thing to size
-  coord_sf(xlim = c(3658201, 8000000),
-           ylim = c(658873, 4500000)) +
+  coord_sf(xlim = xlims,
+           ylim = ylims) +
+  map_theme + 
   theme(
     plot.background = element_rect(fill = "lightblue", color = NA),
     panel.background = element_rect(fill = "lightblue", color = NA),
-    axis.line = element_blank(),
-    axis.ticks = element_blank(),
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank(),
-    axis.text = element_blank(),
-    plot.margin = margin(0,0,-0.1,-0.1,"cm"), # <- set to negative to remove white border
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    panel.border = element_rect(colour = "black", linewidth = 0.7, fill = NA)
+    plot.margin = margin(0,0,-0.1,-0.1,"cm")
   )
 
 ### main plot
@@ -98,14 +96,6 @@ managementArea <- prepInputs(
   fun = sf::st_read,
   overwrite = TRUE
 ) |> Cache()
-# rcl_MA <- data.frame(is = c(0, 11, 12, 13, 20, 31, 32, 33, 40, 50, 100),
-#                      becomes = c(NaN, 1, 1, NaN, NaN, NaN, NaN, NaN ,NaN, NaN, NaN))
-# managementArea  <- classify(managementArea, rcl = rcl_MA)
-# cls_MA <- data.frame(id=c(1), 
-#                      management =c("Managed Forest"))
-# levels(managementArea) <- cls_MA
-# 
-# managementArea_poly <- as.polygons(managementArea) |> st_as_sf()
 managementArea_poly <- managementArea[managementArea$ManagedFor == "Managed Forest", ]
 
 ggplot() +
@@ -117,10 +107,10 @@ ggplot() +
           color = "grey10",
           fill = "transparent",
           linewidth = 1) +
-  theme(plot.background = element_blank(),
-        panel.background = element_blank(),
-        panel.border = element_rect(fill = NA, colour = "black")
-        )
+  map_theme +
+  theme(
+    axis.text = element_text()
+  )
 
 ggdraw(
   ggplot() +
@@ -157,16 +147,17 @@ ggdraw(
       fill = guide_legend(order = 1),
       color = guide_legend(order = 2)
     ) +
-    theme(
-      panel.background = element_blank(),
-      panel.border = element_rect(fill = NA, colour = "black")
-    )
+  map_theme +
+  theme(
+    axis.ticks = element_line(),
+    axis.text = element_text(size = 10)
+  )
 ) +
   draw_plot({
     p
   },
-  x = 0.42,
+  x = 0.45,
   y = 0.8,
   width = 0.20,
-  height = 0.19)
-ggsave("pubFigures/figure1.png", width = 2244, height = 1683, units = "px", dpi = 300)
+  height = 0.18)
+ggsave("pubFigures/figure1.png", dpi = 1000, width = 7480, height = 7480, units = "px")
