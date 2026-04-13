@@ -1,7 +1,5 @@
 # Code to create figure 3: yield tables for 6 pixels in the NWT.
-library(terra)
-library(ggplot2)
-library(patchwork)
+Require::Require(c("terra", "ggplot2", "patchwork"))
 source("scripts/utils.R")
 source("scripts/themes.R")
 

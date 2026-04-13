@@ -100,23 +100,62 @@ poolSummary$management <- ifelse(
   "Unmanaged forest"
 )
 
-fig5c <- ggplot(data = poolSummary) +
+# For the plot, we only need mean
+poolSummary2 <- poolSummary[, .(year, management, component, mean)]
+
+# create dead organic matter (sum of Dead wood, Litter, Soil organic matter)
+dead_parts <- c("Dead wood", "Litter", "Soil organic matter")
+dead_dt <- poolSummary2[
+  component %in% dead_parts,
+  .(mean = sum(mean)),
+  by = .(year, management)
+]
+dead_dt[, component := "Dead organic matter"]
+
+# keep other components (drop the three detailed dead pools) and add dead organic matter
+poolSummary2 <- rbindlist(
+  list(poolSummary2[!component %in% dead_parts], dead_dt),
+  use.names = TRUE,
+  fill = TRUE
+)
+poolSummary2 <- poolSummary2[,
+  component := factor(
+    component,
+    levels = c(
+      "Aboveground biomass",
+      "Belowground biomass",
+      "Dead organic matter",
+      "Total carbon"
+    ),
+    labels = c(
+      "Aboveground\nbiomass",
+      "Belowground\nbiomass",
+      "Dead organic\nmatter",
+      "Total carbon"
+    )
+  )
+]
+
+fig5c <- ggplot(data = poolSummary2) +
   geom_line(
     aes(
-      x = year,
-      y = mean,
-      color = management,
-      linetype = management,
-      group = management
-    ),
+    x = year,
+    y = mean,
+    color = management,
+    linetype = management,
+    group = management
+  ),
     linewidth = line_width
   ) +
   color_scale +
   linetype_scale +
+  scale_x_continuous(name = "Year", limits = c(2000, 2550), breaks = c(2000, 2100, 2200, 2300, 2400, 2500), expand = c(0.01, 0.01)) +
+  facet_wrap(~component, nrow = 1, scales = "free_y") +
   labs(y = "Carbon (tC/ha)", x = "Year") +
-  lims(y = c(0, NA)) + 
+  lims(y = c(0, NA)) +
   biplot_theme +
   theme(
+    legend.position = "bottom",
     axis.text.x = element_text(angle = 45, hjust = 1)
   ) +
   guides(color = guide_legend(override.aes = list(size = 1.1)))
@@ -130,14 +169,22 @@ fluxSummary$management <- ifelse(
   "Unmanaged forest"
 )
 
+
 # For the plot, we only need mean and total emissions
 fluxSummary2 <- fluxSummary[component == "Emissions", .(year, management, mean)]
+# We also want to see the net ecosystem change
+carbonChange <- getCarbonChange(poolSummary, outputPath, managedForest)
 
-fig5d <- ggplot(data = fluxSummary2) +
+fluxSummary2 <- rbind(
+  fluxSummary2[,.(year, management, component = "Emissions", value = mean)],
+  carbonChange[,.(year, management, component = "Net biome\nproduction", value = ChangeC)]
+)
+
+fig5di <- ggplot(data = fluxSummary2[component == "Emissions"]) +
   geom_line(
     aes(
       x = year,
-      y = mean,
+      y = value,
       colour = management,
       linetype = management,
       group = management
@@ -146,20 +193,49 @@ fig5d <- ggplot(data = fluxSummary2) +
   ) +
   color_scale +
   linetype_scale +
-  labs(y = "Emissions (tC/ha)", x = "Year") +
-  lims(y = c(0, NA)) + 
+  facet_wrap(~component, nrow = 1, scales = "free_y") +
+  scale_x_continuous(name = "Year", limits = c(2000, 2550), breaks = c(2000, 2100, 2200, 2300, 2400, 2500), expand = c(0.01, 0.01)) +
+  labs(y = "Carbon (tC/ha)", x = "Year") +
+  lims(y = c(0, NA)) +
   biplot_theme +
   theme(
+    legend.position = "bottom",
     axis.text.x = element_text(angle = 45, hjust = 1)
   ) +
   guides(linetype = "none")
+
+fig5dii <- ggplot(data = fluxSummary2[component == "Net biome\nproduction"]) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_line(
+    aes(
+      x = year,
+      y = value,
+      colour = management,
+      linetype = management,
+      group = management
+    ),
+    linewidth = line_width
+  ) +
+  color_scale +
+  linetype_scale +
+  facet_wrap(~component, nrow = 1, scales = "free_y") +
+  scale_x_continuous(name = "Year", limits = c(2000, 2550), breaks = c(2000, 2100, 2200, 2300, 2400, 2500), expand = c(0.01, 0.01)) +
+  labs(y = "Carbon (tC/ha)", x = "Year") +
+  biplot_theme +
+  theme(
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
+  guides(linetype = "none")
+
+fig5d <- (fig5di + ggtitle("(d) Carbon exchange") | fig5dii)  + plot_layout(axis_titles = "collect") 
 
 # Combine panels and collect legends
 final_plot <- {
   top <- (fig5a + ggtitle("(a) Wildfires") + theme(legend.position = "bottom")) +
     (fig5b + ggtitle("(b) Species dynamics") + theme(legend.position = "bottom")) +
     plot_layout(ncol = 2, guides = "keep")
-  bottom <- ((fig5c + ggtitle("(c) Total carbon")) + (fig5d + ggtitle("(d) Emissions"))) +
+  bottom <- ((fig5c + ggtitle("(c) Total carbon")) + fig5d) +
     plot_layout(ncol = 2, guides = "collect") & theme(legend.position = "bottom")
   top / bottom + plot_layout(heights = c(1,1))
 }

@@ -144,3 +144,38 @@ summarizeFluxes <- function(CBMOutPath, years, managementForestDT){
   return(Cdynamic_dt)
 }
 
+getCarbonChange <- function(poolSummary, CBMOutPath, managementForestDT){
+  # get the total carbon after the spinup (year 0)
+  spinupCarbon <- pixelCarbon(
+    Cpools = qs2::qd_read(file.path(CBMOutPath, "spadesCBMdb", "data", "0_pools.qs2")),
+    key = qs2::qd_read(file.path(CBMOutPath, "spadesCBMdb", "data", "0_key.qs2"))
+  )
+  spinupCarbon <- merge(spinupCarbon, managementForestDT)
+  spinupCarbon <- melt(
+    spinupCarbon,
+    id.vars = c("pixelIndex", "OBJECTID"),
+    measure.vars = "Total_C",
+    variable.name = "component",
+    value.name = "value"
+  )
+  spinupCarbon <- spinupCarbon[, .(mean = mean(value, na.rm = TRUE)),
+    by = .(management = OBJECTID, component)
+  ] |> na.omit()
+
+  out <- c()
+  for (iyear in (unique(poolSummary$year))){
+    if (iyear != min(poolSummary$year)){
+      
+      Cpre <- poolSummary[year == iyear - 1 & component == "Total carbon", ]$mean
+      Cpost <- poolSummary[year == iyear & component == "Total carbon", ]$mean
+      Cchange <- Cpost - Cpre
+
+      out <- rbind(out,
+        data.frame(year = rep(iyear,2),
+        management = poolSummary[year == iyear & component == "Total carbon", ]$management, 
+        ChangeC = Cchange)
+      )
+    }
+  }
+  return(setDT(out))
+}

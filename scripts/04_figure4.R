@@ -5,11 +5,7 @@
 # Panel c: carbon stock in aboveground biomass, belowground biomass, and DOM in the managed vs unmanaged forest
 # Panel d: Emissions in the managed vs unmanaged forest
 
-library(qs2)
-library(data.table)
-library(terra)
-library(ggplot2)
-library(patchwork)
+Require::Require(c("qs2", "data.table", "terra", "ggplot2", "patchwork"))
 source("scripts/themes.R")
 source("scripts/utils.R")
 
@@ -190,23 +186,30 @@ fluxSummary$management <- ifelse(
 
 # For the plot, we only need mean and total emissions
 fluxSummary2 <- fluxSummary[component == "Emissions", .(year, management, mean)]
+# We also want to see the net ecosystem change
+carbonChange <- getCarbonChange(poolSummary, outputPath, managedForest)
 
-fig4d <- ggplot(data = fluxSummary2) +
+fluxSummary2 <- rbind(
+  fluxSummary2[,.(year, management, component = "Emissions", value = mean)],
+  carbonChange[,.(year, management, component = "Net biome\nproduction", value = ChangeC)]
+)
+
+fig4di <- ggplot(data = fluxSummary2[component == "Emissions"]) +
   geom_line(
     aes(
       x = year,
-      y = mean,
+      y = value,
       colour = management,
       linetype = management,
       group = management
     ),
     linewidth = line_width
   ) +
-  geom_point(aes(x = year, y = mean, colour = management), size = point_size) +
   color_scale +
   linetype_scale +
+  facet_wrap(~component, nrow = 1, scales = "free_y") +
   scale_x_continuous(name = "Year", limits = c(2000, 2024), breaks = c(2000, 2005, 2010, 2015, 2020), expand = c(0.01, 0.01)) +
-  labs(y = "Emissions (tC/ha)", x = "Year") +
+  labs(y = "Carbon (tC/ha)", x = "Year") +
   lims(y = c(0, NA)) +
   biplot_theme +
   theme(
@@ -215,11 +218,37 @@ fig4d <- ggplot(data = fluxSummary2) +
   ) +
   guides(linetype = "none")
 
+fig4dii <- ggplot(data = fluxSummary2[component == "Net biome\nproduction"]) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_line(
+    aes(
+      x = year,
+      y = value,
+      colour = management,
+      linetype = management,
+      group = management
+    ),
+    linewidth = line_width
+  ) +
+  color_scale +
+  linetype_scale +
+  facet_wrap(~component, nrow = 1, scales = "free_y") +
+  scale_x_continuous(name = "Year", limits = c(2000, 2024), breaks = c(2000, 2005, 2010, 2015, 2020), expand = c(0.01, 0.01)) +
+  labs(y = "Carbon (tC/ha)", x = "Year") +
+  biplot_theme +
+  theme(
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
+  guides(linetype = "none")
+
+fig4d <- (fig4di + ggtitle("(d) Carbon exchange") | fig4dii)  + plot_layout(axis_titles = "collect") 
+
 # Combine panels and collect legends
 final_plot <- (fig4a + ggtitle("(a) Stand age")) + 
   (fig4b + ggtitle("(b) Area burned")) + 
   (fig4c + ggtitle("(c) Carbon stock")) + 
-  (fig4d + ggtitle("(d) Emissions")) +
+  (fig4d) +
   plot_layout(nrow = 2, ncol = 2, guides = "collect") &
   theme(legend.position = "bottom")
 
