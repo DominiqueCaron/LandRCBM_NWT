@@ -5,7 +5,7 @@
 # Panel c: carbon stock in aboveground biomass, belowground biomass, and DOM in the managed vs unmanaged forest
 # Panel d: Emissions in the managed vs unmanaged forest
 
-Require::Require(c("qs2", "data.table", "terra", "ggplot2", "patchwork"))
+Require::Require(c("qs2", "data.table", "terra", "ggplot2", "ggpubr"))
 source("scripts/themes.R")
 source("scripts/utils.R")
 
@@ -44,30 +44,34 @@ standAges$management <- as.factor(ifelse(
 
 setDT(standAges)
 standAges[,
-  age_bin := cut(
-    age,
-    breaks = seq(0, ceiling(max(age, na.rm = TRUE) / 10) * 10, by = 10),
-    right = FALSE
-  )
+          age_bin := cut(
+            age,
+            breaks = seq(0, ceiling(max(age, na.rm = TRUE) / 10) * 10, by = 10),
+            right = FALSE
+          )
 ]
+standAges <- standAges[,.(area = .N * pixelArea / 10 ^ 6), by = c("management", "age_bin")]
 
-fig4a <- ggplot(standAges, aes(x = age_bin, fill = management)) +
-  geom_bar(position = position_dodge(width = 0.9), width = 0.9, colour = NA) +
+fig4a <- ggplot(standAges, aes(x = age_bin, y = area ,fill = management)) +
+  geom_col(position = position_dodge(width = 0.9), width = 0.9, colour = NA) +
   fill_scale +
-  scale_y_continuous(labels = scales::label_comma()) +
-  labs(x = "Stand age (years)", y = "Number of pixels") +
+  scale_y_continuous() +
+  labs(x = "Stand age (years)", y = "Area (Mha)") +
   biplot_theme +
   theme(
     legend.position = "bottom",
     axis.text.x = element_text(angle = 45, hjust = 1)
   )
+fig4a <- annotate_figure(fig4a,
+  fig.lab = "(a) Stand Ages"
+)
 
 # Panel b area burned and area harvested in the managed vs unmanaged forest
 fig4b_dt <- merge(disturbanceEvents, managedForest)
 fig4b_dt <- fig4b_dt[, .(area = .N), by = c("year", "eventID", "OBJECTID")] |>
   na.omit()
 # convert number of cells to ha
-fig4b_dt$area <- fig4b_dt$area * pixelArea
+fig4b_dt$area <- fig4b_dt$area * pixelArea / 10^6
 fig4b_dt$distType <- as.factor(ifelse(
   fig4b_dt$eventID == 1,
   "Wildfire",
@@ -82,7 +86,7 @@ fig4b_dt$management <- as.factor(ifelse(
 fig4b <- ggplot(
   fig4b_dt,
   aes(
-    x = year-1,
+    x = year,
     y = area,
     color = management,
     linetype = management,
@@ -93,14 +97,15 @@ fig4b <- ggplot(
   geom_point(size = point_size) +
   color_scale +
   linetype_scale +
-  scale_y_continuous(name = "Area burned (ha)", labels = scales::label_comma()) +
+  scale_y_continuous(name = "Area burned (Mha)") +
   scale_x_continuous(name = "Year", limits = c(2000, 2024), breaks = c(2000, 2005, 2010, 2015, 2020), expand = c(0.01, 0.01)) +
   labs(color = "Management", title = NULL) +
   biplot_theme +
   theme(
-    legend.position = "bottom",
+    legend.position = "none",
     axis.text.x = element_text(angle = 45, hjust = 1)
   )
+fig4b <- annotate_figure(fig4b, fig.lab = "(b) Area burned")
 
 # Panel c: carbon stock in aboveground biomass, belowground biomass, and DOM in the managed vs unmanaged forest
 poolSummary <- summarizeSimulation(
@@ -134,32 +139,32 @@ poolSummary2 <- rbindlist(
   fill = TRUE
 )
 poolSummary2 <- poolSummary2[,
-  component := factor(
-    component,
-    levels = c(
-      "Aboveground biomass",
-      "Belowground biomass",
-      "Dead organic matter",
-      "Total carbon"
-    ),
-    labels = c(
-      "Aboveground\nbiomass",
-      "Belowground\nbiomass",
-      "Dead organic\nmatter",
-      "Total carbon"
-    )
-  )
+                             component := factor(
+                               component,
+                               levels = c(
+                                 "Aboveground biomass",
+                                 "Belowground biomass",
+                                 "Dead organic matter",
+                                 "Total carbon"
+                               ),
+                               labels = c(
+                                 "Aboveground\nbiomass",
+                                 "Belowground\nbiomass",
+                                 "Dead organic\nmatter",
+                                 "Total carbon"
+                               )
+                             )
 ]
 
 fig4c <- ggplot(data = poolSummary2) +
   geom_line(
     aes(
-    x = year,
-    y = mean,
-    color = management,
-    linetype = management,
-    group = management
-  ),
+      x = year,
+      y = mean,
+      color = management,
+      linetype = management,
+      group = management
+    ),
     linewidth = line_width
   ) +
   color_scale +
@@ -171,9 +176,18 @@ fig4c <- ggplot(data = poolSummary2) +
   biplot_theme +
   theme(
     legend.position = "bottom",
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  ) +
-  guides(color = guide_legend(override.aes = list(size = 1.1)))
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank()
+  )
+
+plot_legend <- get_legend(fig4c)
+fig4c <- annotate_figure(
+  fig4c + theme(legend.position = "none"),
+  fig.lab = "(c) Carbon stocks",
+  bottom = text_grob("Year", hjust = 0.5),
+  left = text_grob("Carbon (tC/ha)", rot = 90, vjust = 0.5)
+)
 
 # Panel d: summarizing emissions over years
 fluxSummary <- summarizeFluxes(outputPath, years = 2000:2024, managedForest) |>
@@ -185,20 +199,14 @@ fluxSummary$management <- ifelse(
 )
 
 # For the plot, we only need mean and total emissions
-fluxSummary2 <- fluxSummary[component == "Emissions", .(year, management, mean)]
-# We also want to see the net ecosystem change
-carbonChange <- getCarbonChange(poolSummary, outputPath, managedForest)
+fluxSummary2 <- fluxSummary[component %in% c("NPP", "NBP", "Emissions"), .(year, management, component, mean)]
+fluxSummary2$component <- factor(fluxSummary2$component, levels = c("NPP", "Emissions", "NBP"), labels = c("Net primary\nproductivity", "Emissions", "Net biome\nproductivity"))
 
-fluxSummary2 <- rbind(
-  fluxSummary2[,.(year, management, component = "Emissions", value = mean)],
-  carbonChange[,.(year, management, component = "Net biome\nproduction", value = ChangeC)]
-)
-
-fig4di <- ggplot(data = fluxSummary2[component == "Emissions"]) +
+fig4di <- ggplot(data = fluxSummary2[component != "Net biome\nproductivity"]) +
   geom_line(
     aes(
       x = year,
-      y = value,
+      y = mean,
       colour = management,
       linetype = management,
       group = management
@@ -207,23 +215,25 @@ fig4di <- ggplot(data = fluxSummary2[component == "Emissions"]) +
   ) +
   color_scale +
   linetype_scale +
-  facet_wrap(~component, nrow = 1, scales = "free_y") +
+  facet_wrap(~component, nrow = 1, axes = "all") +
   scale_x_continuous(name = "Year", limits = c(2000, 2024), breaks = c(2000, 2005, 2010, 2015, 2020), expand = c(0.01, 0.01)) +
   labs(y = "Carbon (tC/ha)", x = "Year") +
   lims(y = c(0, NA)) +
   biplot_theme +
   theme(
-    legend.position = "bottom",
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  ) +
-  guides(linetype = "none")
+    legend.position = "none",
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    plot.margin = margin(r = 0, t = 15, b = 15, l = 15)
+  )
 
-fig4dii <- ggplot(data = fluxSummary2[component == "Net biome\nproduction"]) +
+fig4dii <- ggplot(data = fluxSummary2[component == "Net biome\nproductivity"]) +
   geom_hline(yintercept = 0, linetype = "dashed") +
   geom_line(
     aes(
       x = year,
-      y = value,
+      y = mean,
       colour = management,
       linetype = management,
       group = management
@@ -237,21 +247,29 @@ fig4dii <- ggplot(data = fluxSummary2[component == "Net biome\nproduction"]) +
   labs(y = "Carbon (tC/ha)", x = "Year") +
   biplot_theme +
   theme(
-    legend.position = "bottom",
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  ) +
-  guides(linetype = "none")
+    legend.position = "none",
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    plot.margin = margin(l = 0, t = 15, b = 15, r = 15)
+  )
 
-fig4d <- (fig4di + ggtitle("(d) Carbon exchange") | fig4dii)  + plot_layout(axis_titles = "collect") 
+fig4d <- ggarrange(fig4di, fig4dii, widths = c(2, 1))
+fig4d <- annotate_figure(
+  fig4d,
+  fig.lab = "(d) Carbon exchange",
+  bottom = text_grob("Year", hjust = 0.5),
+  left = text_grob("Carbon (tC/ha)", rot = 90, vjust = 0.5)
+)
+
+bottom_plots <- ggarrange(fig4c, fig4d)
 
 # Combine panels and collect legends
-final_plot <- (fig4a + ggtitle("(a) Stand age")) + 
-  (fig4b + ggtitle("(b) Area burned")) + 
-  (fig4c + ggtitle("(c) Carbon stock")) + 
-  (fig4d) +
-  plot_layout(nrow = 2, ncol = 2, guides = "collect") &
-  theme(legend.position = "bottom")
+top_plots <- ggarrange(fig4a, fig4b)
+final_plot <- ggarrange(top_plots, bottom_plots, nrow = 2) |>
+  annotate_figure(
+    bottom = plot_legend
+  ) + theme(plot.background = element_rect(fill = "white", colour = "white"))
 
-final_plot
 ggsave(plot = final_plot, "pubFigures/figure4.png", width = 12, height = 8)
 ggsave(plot = final_plot, "pubFigures/figure4.pdf", width = 12, height = 8)

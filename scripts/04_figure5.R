@@ -10,7 +10,7 @@ library(terra)
 library(tidyterra)
 library(data.table)
 library(ggplot2)
-library(patchwork)
+library(ggpubr)
 source("scripts/themes.R")
 source("scripts/utils.R")
 
@@ -61,9 +61,13 @@ fig5a <- ggplot() +
     panel.grid.minor = element_blank(),
     panel.border = element_rect(colour = "black", linewidth = 0.7, fill = NA)
   )
-
+fig5a <- annotate_figure(fig5a, fig.lab = "(a) Wildfires")
 # Figure b: species dynamics
 speciesDynamics <- readRDS(file.path(outputPath, paste0("summaryBySpecies_year", yearEnd, ".rds")))
+
+# Remove Pice_eng_gla and Popu_bal as it is veru very low
+speciesDynamics <- speciesDynamics[!(speciesCode %in% c("Pice_eng_gla", "Popu_bal")), ]
+
 sppEquiv <- LandR::sppEquivalencies_CA[, c("LandR", "EN_generic_full", "colorHex")]
 spNames <- sppEquiv$EN_generic_full[match(speciesDynamics$speciesCode, sppEquiv$LandR)]
 spCol <- sppEquiv$colorHex[match(speciesDynamics$speciesCode, sppEquiv$LandR)]
@@ -74,16 +78,18 @@ speciesDynamics$col <- factor(x = spNames, levels = unique(spNames), labels = un
 speciesDynamics$AGB <- speciesDynamics$BiomassBySpecies / Npixels # per pixels
 speciesDynamics$AGB <- speciesDynamics$AGB * 10000 # per ha
 speciesDynamics$AGB <- speciesDynamics$AGB / 10^6 # tonnes/ha
-speciesDynamics$AGB <- speciesDynamics$AGB * 0.5 # tonnesC/ha
 
 fig5b <- ggplot() +
   geom_line(aes(x = year, y = AGB, color = col), data = speciesDynamics) +
   scale_color_manual(values = unique(spCol)) +
-  labs(x = "Year", y = "Aboveground biomass (tC/ha)", color = "Species") + 
+  labs(x = "Year", y = "Aboveground biomass (t/ha)", color = "Species") + 
   biplot_theme +
   theme(
+    legend.position = "right",
+    legend.key.height = unit(1, "lines"),
     axis.text.x = element_text(angle = 45, hjust = 1)
   )
+fig5b <- annotate_figure(fig5b, fig.lab = c("(b) Species dynamics"))
 
 # Figure c: carbon dynamics
 poolSummary <- summarizeSimulation(
@@ -93,7 +99,6 @@ poolSummary <- summarizeSimulation(
 ) |>
   na.omit()
 # only keep total C
-poolSummary <- poolSummary[component == "Total carbon",]
 poolSummary$management <- ifelse(
   poolSummary$management == 1,
   "Managed forest",
@@ -119,32 +124,32 @@ poolSummary2 <- rbindlist(
   fill = TRUE
 )
 poolSummary2 <- poolSummary2[,
-  component := factor(
-    component,
-    levels = c(
-      "Aboveground biomass",
-      "Belowground biomass",
-      "Dead organic matter",
-      "Total carbon"
-    ),
-    labels = c(
-      "Aboveground\nbiomass",
-      "Belowground\nbiomass",
-      "Dead organic\nmatter",
-      "Total carbon"
-    )
-  )
+                             component := factor(
+                               component,
+                               levels = c(
+                                 "Aboveground biomass",
+                                 "Belowground biomass",
+                                 "Dead organic matter",
+                                 "Total carbon"
+                               ),
+                               labels = c(
+                                 "Aboveground\nbiomass",
+                                 "Belowground\nbiomass",
+                                 "Dead organic\nmatter",
+                                 "Total carbon"
+                               )
+                             )
 ]
 
 fig5c <- ggplot(data = poolSummary2) +
   geom_line(
     aes(
-    x = year,
-    y = mean,
-    color = management,
-    linetype = management,
-    group = management
-  ),
+      x = year,
+      y = mean,
+      color = management,
+      linetype = management,
+      group = management
+    ),
     linewidth = line_width
   ) +
   color_scale +
@@ -156,12 +161,20 @@ fig5c <- ggplot(data = poolSummary2) +
   biplot_theme +
   theme(
     legend.position = "bottom",
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  ) +
-  guides(color = guide_legend(override.aes = list(size = 1.1)))
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank()
+  )
+plot_legend <- get_legend(fig5c)
+fig5c <- annotate_figure(
+  fig5c + theme(legend.position = "none"),
+  fig.lab = "(c) Carbon stocks",
+  bottom = text_grob("Year", hjust = 0.5),
+  left = text_grob("Carbon (tC/ha)", rot = 90, vjust = 0.5)
+)
 
 # Panel d: summarizing emissions over years
-fluxSummary <- summarizeFluxes(outputPath, years = seq(from = yearStart, to = yearEnd, by = 10), managedForest) |>
+fluxSummary <- summarizeFluxes(outputPath, years = seq(from = yearStart+10, to = yearEnd, by = 10), managedForest) |>
   na.omit()
 fluxSummary$management <- ifelse(
   fluxSummary$management == 1,
@@ -171,20 +184,14 @@ fluxSummary$management <- ifelse(
 
 
 # For the plot, we only need mean and total emissions
-fluxSummary2 <- fluxSummary[component == "Emissions", .(year, management, mean)]
-# We also want to see the net ecosystem change
-carbonChange <- getCarbonChange(poolSummary, outputPath, managedForest)
+fluxSummary2 <- fluxSummary[component %in% c("NPP", "NBP", "Emissions"), .(year, management, component, mean)]
+fluxSummary2$component <- factor(fluxSummary2$component, levels = c("NPP", "Emissions", "NBP"), labels = c("Net primary\nproductivity", "Emissions", "Net biome\nproductivity"))
 
-fluxSummary2 <- rbind(
-  fluxSummary2[,.(year, management, component = "Emissions", value = mean)],
-  carbonChange[,.(year, management, component = "Net biome\nproduction", value = ChangeC)]
-)
-
-fig5di <- ggplot(data = fluxSummary2[component == "Emissions"]) +
+fig5di <- ggplot(data = fluxSummary2[component != "Net biome\nproductivity"]) +
   geom_line(
     aes(
       x = year,
-      y = value,
+      y = mean,
       colour = management,
       linetype = management,
       group = management
@@ -193,23 +200,25 @@ fig5di <- ggplot(data = fluxSummary2[component == "Emissions"]) +
   ) +
   color_scale +
   linetype_scale +
-  facet_wrap(~component, nrow = 1, scales = "free_y") +
+  facet_wrap(~component, nrow = 1, axes = "all") +
   scale_x_continuous(name = "Year", limits = c(2000, 2550), breaks = c(2000, 2100, 2200, 2300, 2400, 2500), expand = c(0.01, 0.01)) +
   labs(y = "Carbon (tC/ha)", x = "Year") +
   lims(y = c(0, NA)) +
   biplot_theme +
   theme(
-    legend.position = "bottom",
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  ) +
-  guides(linetype = "none")
+    legend.position = "none",
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    plot.margin = margin(r = 0, t = 15, b = 15, l = 15)
+  )
 
-fig5dii <- ggplot(data = fluxSummary2[component == "Net biome\nproduction"]) +
+fig5dii <- ggplot(data = fluxSummary2[component == "Net biome\nproductivity"]) +
   geom_hline(yintercept = 0, linetype = "dashed") +
   geom_line(
     aes(
       x = year,
-      y = value,
+      y = mean,
       colour = management,
       linetype = management,
       group = management
@@ -223,22 +232,30 @@ fig5dii <- ggplot(data = fluxSummary2[component == "Net biome\nproduction"]) +
   labs(y = "Carbon (tC/ha)", x = "Year") +
   biplot_theme +
   theme(
-    legend.position = "bottom",
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  ) +
-  guides(linetype = "none")
+    legend.position = "none",
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    plot.margin = margin(l = 0, t = 15, b = 15, r = 15)
+  )
 
-fig5d <- (fig5di + ggtitle("(d) Carbon exchange") | fig5dii)  + plot_layout(axis_titles = "collect") 
+fig5d <- ggarrange(fig5di, fig5dii, widths = c(2, 1))
+fig5d <- annotate_figure(
+  fig5d,
+  fig.lab = "(d) Carbon exchange",
+  bottom = text_grob("Year", hjust = 0.5),
+  left = text_grob("Carbon (tC/ha)", rot = 90, vjust = 0.5)
+)
+
+bottom_plots <- ggarrange(fig5c, fig5d)
 
 # Combine panels and collect legends
-final_plot <- {
-  top <- (fig5a + ggtitle("(a) Wildfires") + theme(legend.position = "bottom")) +
-    (fig5b + ggtitle("(b) Species dynamics") + theme(legend.position = "bottom")) +
-    plot_layout(ncol = 2, guides = "keep")
-  bottom <- ((fig5c + ggtitle("(c) Total carbon")) + fig5d) +
-    plot_layout(ncol = 2, guides = "collect") & theme(legend.position = "bottom")
-  top / bottom + plot_layout(heights = c(1,1))
-}
+top_plots <- ggarrange(fig5a, fig5b)
+final_plot <- ggarrange(top_plots, bottom_plots, nrow = 2) |>
+  annotate_figure(
+    bottom = plot_legend
+  ) + theme(plot.background = element_rect(fill = "white", colour = "white"))
+
 
 ggsave(plot = final_plot, "pubFigures/figure5.png", width = 12, height = 8)
 ggsave(plot = final_plot, "pubFigures/figure5.pdf", width = 12, height = 8)

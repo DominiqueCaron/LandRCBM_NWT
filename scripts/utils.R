@@ -1,7 +1,7 @@
 plotYieldCurves <- function(yieldTables, id){
   # estract the yieldCurves for the id selected
   yieldTables <- yieldTables[yieldTables$yieldTableIndex == id,]
-
+  
   # prepare species-specific colors and name
   yieldTables$speciesName <- as.factor(LandR::sppEquivalencies_CA$EN_generic_full[match(
     yieldTables$speciesCode,
@@ -16,22 +16,22 @@ plotYieldCurves <- function(yieldTables, id){
   if("Lodgepole pine" %in% names(spCols)) {
     spCols["Lodgepole pine"] <- "#02AD24"
   }
-
-ggplot(yieldTables, aes(x = age, y = merch, colour = speciesName)) +
-  geom_line(size = 0.9) +
-  labs(y = "Merchantable biomass (tC/ha)", x = "Stand age (years)", colour = NULL) +
-  scale_colour_manual(values = spCols) +
-  scale_x_continuous(limits = c(0, NA), expand = c(0, 0)) +
-  scale_y_continuous(limits = c(0, 15), expand = c(0, 0)) +
-  biplot_theme +
-  theme(
-    legend.position = c(0.01, 0.99),
-    legend.justification = c(0, 1),
-    plot.margin = margin(10, 10, 10, 10),
-    legend.key.height = unit(0.8, "lines"),
-    legend.background = element_blank()
-  )
-
+  
+  ggplot(yieldTables, aes(x = age, y = merch, colour = speciesName)) +
+    geom_line(size = 0.9) +
+    labs(y = "Merchantable biomass (tC/ha)", x = "Stand age (years)", colour = NULL) +
+    scale_colour_manual(values = spCols) +
+    scale_x_continuous(limits = c(0, NA), expand = c(0, 0)) +
+    scale_y_continuous(limits = c(0, 15), expand = c(0, 0)) +
+    biplot_theme +
+    theme(
+      legend.position = c(0.01, 0.99),
+      legend.justification = c(0, 1),
+      plot.margin = margin(10, 10, 10, 10),
+      legend.key.height = unit(0.8, "lines"),
+      legend.background = element_blank()
+    )
+  
 }
 
 pixelCarbon <- function(Cpools, key){
@@ -75,10 +75,10 @@ summarizeSimulation <- function(CBMOutPath, years, managementForestDT){
       value.name = "value"
     )
     stats_dt <- dt_long[, .(mean = mean(value, na.rm = TRUE),
-      median = median(value, na.rm = TRUE),
-      sd = sd(value, na.rm = TRUE),
-      nPixels = .N),
-      by = .(management = OBJECTID, component)
+                            median = median(value, na.rm = TRUE),
+                            sd = sd(value, na.rm = TRUE),
+                            nPixels = .N),
+                        by = .(management = OBJECTID, component)
     ]
     stats_dt[, year := year]
     setcolorder(
@@ -98,11 +98,15 @@ pixelFlux <- function(emissions, key){
   emissions[, CH4 := DisturbanceBioCH4Emission + DisturbanceDOMCH4Emission]
   emissions[, CO  := DisturbanceBioCOEmission + DisturbanceDOMCOEmission]
   emissions[, Emissions := CO2 + CH4 + CO]
-
+  emissions[, NPP := DeltaBiomass_AG + DeltaBiomass_BG + TurnoverMerchLitterInput + TurnoverFolLitterInput + TurnoverOthLitterInput + TurnoverCoarseLitterInput + TurnoverFineLitterInput]
+  emissions[, NBP := NPP - Emissions]
+  
   # expand data.table to get 1 row per cohort
   emissions <- emissions[match(key$row_idx, emissions$row_idx),]
   emissions$pixelIndex <- key$pixelIndex
-  summary_emissions <- emissions[, .(pixelIndex, CO2, CH4, CO, Emissions)]
+  summary_emissions <- emissions[, .(pixelIndex, CO2, CH4, CO, Emissions, NPP, NBP)]
+  summary_emissions <- summary_emissions[,.(CO2 = sum(CO2), CH4 = sum(CH4), CO = sum(CO), Emissions = sum(Emissions), NPP = sum(NPP), NBP = sum(NBP)), by = "pixelIndex"]
+  
   return(summary_emissions)
 }
 
@@ -120,19 +124,19 @@ summarizeFluxes <- function(CBMOutPath, years, managementForestDT){
       key = key_current
     )
     pixelCarbonFlux <- merge(pixelCarbonFlux, managementForestDT)
-
+    
     dt_long <- melt(
       pixelCarbonFlux,
       id.vars = c("pixelIndex", "OBJECTID"),
-      measure.vars = c("CO2", "CH4", "CO", "Emissions"),
+      measure.vars = c("CO2", "CH4", "CO", "Emissions", "NPP", "NBP"),
       variable.name = "component",
       value.name = "value"
     )
     stats_dt <- dt_long[, .(mean = mean(value, na.rm = TRUE),
-      median = median(value, na.rm = TRUE),
-      sd = sd(value, na.rm = TRUE),
-      nPixels = .N),
-      by = .(management = OBJECTID, component)
+                            median = median(value, na.rm = TRUE),
+                            sd = sd(value, na.rm = TRUE),
+                            nPixels = .N),
+                        by = .(management = OBJECTID, component)
     ]
     stats_dt[, year := year]
     setcolorder(
@@ -144,38 +148,3 @@ summarizeFluxes <- function(CBMOutPath, years, managementForestDT){
   return(Cdynamic_dt)
 }
 
-getCarbonChange <- function(poolSummary, CBMOutPath, managementForestDT){
-  # get the total carbon after the spinup (year 0)
-  spinupCarbon <- pixelCarbon(
-    Cpools = qs2::qd_read(file.path(CBMOutPath, "spadesCBMdb", "data", "0_pools.qs2")),
-    key = qs2::qd_read(file.path(CBMOutPath, "spadesCBMdb", "data", "0_key.qs2"))
-  )
-  spinupCarbon <- merge(spinupCarbon, managementForestDT)
-  spinupCarbon <- melt(
-    spinupCarbon,
-    id.vars = c("pixelIndex", "OBJECTID"),
-    measure.vars = "Total_C",
-    variable.name = "component",
-    value.name = "value"
-  )
-  spinupCarbon <- spinupCarbon[, .(mean = mean(value, na.rm = TRUE)),
-    by = .(management = OBJECTID, component)
-  ] |> na.omit()
-
-  out <- c()
-  for (iyear in (unique(poolSummary$year))){
-    if (iyear != min(poolSummary$year)){
-      
-      Cpre <- poolSummary[year == iyear - 1 & component == "Total carbon", ]$mean
-      Cpost <- poolSummary[year == iyear & component == "Total carbon", ]$mean
-      Cchange <- Cpost - Cpre
-
-      out <- rbind(out,
-        data.frame(year = rep(iyear,2),
-        management = poolSummary[year == iyear & component == "Total carbon", ]$management, 
-        ChangeC = Cchange)
-      )
-    }
-  }
-  return(setDT(out))
-}

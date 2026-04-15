@@ -18,7 +18,7 @@ biplot_theme <- theme_classic(base_size = base_size) +
     panel.border = element_rect(colour = "black", fill = NA),
     strip.background = element_rect(fill = "gray97", color = NA),
     strip.text = element_text(face = "bold", size = 10),
-    plot.margin = margin(6, 6, 6, 6)
+    plot.margin = margin(15, 15, 15, 15)
   )
 
 # Custom theme for maps
@@ -51,8 +51,7 @@ color_scale <- scale_color_manual(
     "Managed forest" = managedForestColor,
     "Unmanaged forest" = unmanagedForestColor
   ),
-  name = "Management",
-  guide = "none"
+  name = "Management"
 )
 
 # Linetype scale
