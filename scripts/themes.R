@@ -1,9 +1,9 @@
 # Common variables
 base_size <- 12
-line_width <- 0.9
+line_width <- 0.7
 point_size <- 1.6
-managedForestColor <- "darkred"
-unmanagedForestColor <- "#1b9e77"
+managedForestColor <- "#DC3220"
+unmanagedForestColor <- "#005AB5"
 
 # Custom theme for biplots
 biplot_theme <- theme_classic(base_size = base_size) +
@@ -18,7 +18,7 @@ biplot_theme <- theme_classic(base_size = base_size) +
     panel.border = element_rect(colour = "black", fill = NA),
     strip.background = element_rect(fill = "gray97", color = NA),
     strip.text = element_text(face = "bold", size = 10),
-    plot.margin = margin(15, 15, 15, 15)
+    plot.margin = margin(6, 6, 6, 6)
   )
 
 # Custom theme for maps
@@ -42,7 +42,7 @@ fill_scale <- scale_fill_manual(
     "Managed forest" = managedForestColor,
     "Unmanaged forest" = unmanagedForestColor
   ),
-  guide = "none"
+  name = "Management"
 )
 
 # Color scale

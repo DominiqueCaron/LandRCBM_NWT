@@ -10,7 +10,7 @@ source("scripts/themes.R")
 source("scripts/utils.R")
 
 # Some setup
-outputPath <- "~/../Downloads/historicalDisturbances/"
+outputPath <- "outputs/historicalDisturbances/"
 pixelArea <- 240 * 240 / 10000 # pixels are 240mx240m -> ha per pixel
 
 # PixelIndex within the managed forest
@@ -19,7 +19,7 @@ disturbanceEvents <- readRDS(file.path(
   outputPath,
   "disturbanceEvents_year2024.rds"
 ))
-managedForest <- vect("~/../Downloads/MFUF_26july2016/MFUF_26july2016.shp") |>
+managedForest <- vect("inputs/MFUF_26july2016/MFUF_26july2016.shp") |>
   project(crs(rasterToMatch))
 managedForest <- rasterize(managedForest, rasterToMatch, field = "OBJECTID")
 managedForest <- data.frame(
@@ -51,19 +51,21 @@ standAges[,
           )
 ]
 standAges <- standAges[,.(area = .N * pixelArea / 10 ^ 6), by = c("management", "age_bin")]
-
-fig4a <- ggplot(standAges, aes(x = age_bin, y = area ,fill = management)) +
-  geom_col(position = position_dodge(width = 0.9), width = 0.9, colour = NA) +
+setorder(standAges, management)
+fig4a <- ggplot(standAges, aes(x = age_bin, y = area , color = management, group = management, fill = management)) +
+  geom_col(position = position_identity(), alpha = 0.5, width= 1) +
   fill_scale +
+  color_scale + 
   scale_y_continuous() +
   labs(x = "Stand age (years)", y = "Area (Mha)") +
   biplot_theme +
   theme(
-    legend.position = "bottom",
-    axis.text.x = element_text(angle = 45, hjust = 1)
+    legend.position = "none",
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.margin = margin(t = 12)
   )
 fig4a <- annotate_figure(fig4a,
-  fig.lab = "(a) Stand Ages"
+                         fig.lab = "(a) Stand Ages"
 )
 
 # Panel b area burned and area harvested in the managed vs unmanaged forest
@@ -83,27 +85,28 @@ fig4b_dt$management <- as.factor(ifelse(
   "Unmanaged forest"
 ))
 
+setorder(fig4b_dt, year, management)
 fig4b <- ggplot(
   fig4b_dt,
   aes(
     x = year,
     y = area,
     color = management,
-    linetype = management,
+    fill = management,
     group = management
   )
 ) +
-  geom_line(linewidth = line_width) +
-  geom_point(size = point_size) +
+  geom_col(alpha = 0.5, position = position_identity(), width = 1) +
   color_scale +
-  linetype_scale +
+  fill_scale +
   scale_y_continuous(name = "Area burned (Mha)") +
-  scale_x_continuous(name = "Year", limits = c(2000, 2024), breaks = c(2000, 2005, 2010, 2015, 2020), expand = c(0.01, 0.01)) +
+  scale_x_continuous(name = "Year", limits = c(1999, 2025), breaks = c(2000, 2005, 2010, 2015, 2020), expand = c(0.01, 0.01)) +
   labs(color = "Management", title = NULL) +
   biplot_theme +
   theme(
     legend.position = "none",
-    axis.text.x = element_text(angle = 45, hjust = 1)
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.margin = margin(t = 12)
   )
 fig4b <- annotate_figure(fig4b, fig.lab = "(b) Area burned")
 
@@ -156,20 +159,23 @@ poolSummary2 <- poolSummary2[,
                              )
 ]
 
+setorder(poolSummary2, management)
 fig4c <- ggplot(data = poolSummary2) +
-  geom_line(
+  geom_col(
     aes(
       x = year,
       y = mean,
       color = management,
-      linetype = management,
+      fill = management,
       group = management
     ),
-    linewidth = line_width
+    alpha = 0.5,
+    width = 1,
+    position = position_identity()
   ) +
   color_scale +
-  linetype_scale +
-  scale_x_continuous(name = "Year", limits = c(2000, 2024), breaks = c(2000, 2005, 2010, 2015, 2020), expand = c(0.01, 0.01)) +
+  fill_scale +
+  scale_x_continuous(name = "Year", limits = c(1999, 2025), breaks = c(2000, 2005, 2010, 2015, 2020), expand = c(0.01, 0.01)) +
   facet_wrap(~component, nrow = 1, scales = "free_y") +
   labs(y = "Carbon (tC/ha)", x = "Year") +
   lims(y = c(0, NA)) +
@@ -189,6 +195,7 @@ fig4c <- annotate_figure(
   left = text_grob("Carbon (tC/ha)", rot = 90, vjust = 0.5)
 )
 
+
 # Panel d: summarizing emissions over years
 fluxSummary <- summarizeFluxes(outputPath, years = 2000:2024, managedForest) |>
   na.omit()
@@ -202,21 +209,24 @@ fluxSummary$management <- ifelse(
 fluxSummary2 <- fluxSummary[component %in% c("NPP", "NBP", "Emissions"), .(year, management, component, mean)]
 fluxSummary2$component <- factor(fluxSummary2$component, levels = c("NPP", "Emissions", "NBP"), labels = c("Net primary\nproductivity", "Emissions", "Net biome\nproductivity"))
 
+setorder(fluxSummary2, management)
 fig4di <- ggplot(data = fluxSummary2[component != "Net biome\nproductivity"]) +
-  geom_line(
+  geom_col(
     aes(
       x = year,
       y = mean,
       colour = management,
-      linetype = management,
+      fill = management,
       group = management
     ),
-    linewidth = line_width
+    alpha = 0.5,
+    position = position_identity(),
+    width = 1
   ) +
   color_scale +
-  linetype_scale +
+  fill_scale + 
   facet_wrap(~component, nrow = 1, axes = "all") +
-  scale_x_continuous(name = "Year", limits = c(2000, 2024), breaks = c(2000, 2005, 2010, 2015, 2020), expand = c(0.01, 0.01)) +
+  scale_x_continuous(name = "Year", limits = c(1999, 2025), breaks = c(2000, 2005, 2010, 2015, 2020), expand = c(0.01, 0.01)) +
   labs(y = "Carbon (tC/ha)", x = "Year") +
   lims(y = c(0, NA)) +
   biplot_theme +
@@ -230,20 +240,23 @@ fig4di <- ggplot(data = fluxSummary2[component != "Net biome\nproductivity"]) +
 
 fig4dii <- ggplot(data = fluxSummary2[component == "Net biome\nproductivity"]) +
   geom_hline(yintercept = 0, linetype = "dashed") +
-  geom_line(
+  geom_col(
     aes(
       x = year,
       y = mean,
       colour = management,
-      linetype = management,
+      fill = management,
       group = management
     ),
-    linewidth = line_width
+    alpha = 0.5,
+    position = position_identity(),
+    width = 1
   ) +
   color_scale +
+  fill_scale + 
   linetype_scale +
   facet_wrap(~component, nrow = 1, scales = "free_y") +
-  scale_x_continuous(name = "Year", limits = c(2000, 2024), breaks = c(2000, 2005, 2010, 2015, 2020), expand = c(0.01, 0.01)) +
+  scale_x_continuous(name = "Year", limits = c(1999, 2025), breaks = c(2000, 2005, 2010, 2015, 2020), expand = c(0.01, 0.01)) +
   labs(y = "Carbon (tC/ha)", x = "Year") +
   biplot_theme +
   theme(

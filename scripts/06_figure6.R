@@ -93,8 +93,8 @@ p6c <- ggplot() +
     panel.border = element_rect(colour = "black", linewidth = 0.7, fill = NA)
   )
 
-left <- (p6a + ggtitle(paste("(a)", yearStart))) +
-  (p6b + ggtitle(paste("(b)", yearEnd))) +
+left <- (p6a + ggtitle(paste("(a) Year 0"))) +
+  (p6b + ggtitle(paste("(b) Year 500"))) +
   plot_layout(ncol = 2, guides = "collect")
 
 left <- left &
@@ -123,3 +123,4 @@ p6b <- p6b + theme(legend.position = "none")
 final_plot <- (left | right) +
   plot_layout(widths = c(2, 1), heights = 1, guides = "keep")
 ggsave("pubFigures/figure6.png", plot = final_plot)
+ggsave("pubFigures/figure6.tif", plot = final_plot, width = 3740, height = 2493, dpi = 500, units = "px")

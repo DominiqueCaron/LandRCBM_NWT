@@ -1,5 +1,4 @@
 .Rproj.user
-<<<<<<< HEAD
 .Rhistory
 .Rdata
 .httr-oauth
@@ -14,27 +13,8 @@ outputPath
 .secret
 .secrets
 cache/
-
 inputs/
-
 outputs/
-
 packages/
-
 modules/
-=======
-cache
-outputs
-inputs
-modules
-.Rhistory
-.Rdata
-.RData
-.secret
-.secrets
-.Rprofile
-.Restart*
-.httr-oauth
-.DS_Store
-.quarto
->>>>>>> b073d31f2103bbbc1282c2191a59d8a0ae98f806
+CHECKSUMS.txt

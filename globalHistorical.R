@@ -2,6 +2,8 @@
 ###
 # This script runs LandR and CBM in NWT.
 # It uses the historical disturbances module to run the model with historical disturbances from CanLaD between 2000 and 2024.
+# Some data are retrieved from Google Drive, so R will ask to sign up to a Google Drive account.
+# Access to permanent Sample Plot data is restricted and will require user to ask permission.
 ###
 ###
 
@@ -13,7 +15,7 @@ if (!require("SpaDES.project")){
 
 out <- SpaDES.project::setupProject(
   paths = list(projectPath = getwd(),
-               inputPath = "~/inputs",
+               inputPath = "inputs",
                outputPath = "outputs/historicalDisturbances",
                cachePath = "cache"),
   options = options(
@@ -23,17 +25,17 @@ out <- SpaDES.project::setupProject(
     spades.recoveryMode = FALSE),
   times = list(start = 2000, end = 2024),
   modules = c(
-    "PredictiveEcology/Biomass_borealDataPrep@development",
-    "PredictiveEcology/Biomass_speciesFactorial@development",
-    "PredictiveEcology/Biomass_speciesParameters@development",
-    "PredictiveEcology/CBM_defaults@development",
-    "DominiqueCaron/historicalDisturbances@main",
-    "PredictiveEcology/Biomass_regeneration@development",
-    "PredictiveEcology/Biomass_yieldTables@main",
-    "PredictiveEcology/Biomass_core@development",
-    "PredictiveEcology/CBM_dataPrep@development",
-    "PredictiveEcology/LandRCBM_split3pools@main",
-    "PredictiveEcology/CBM_core@development"
+    "PredictiveEcology/Biomass_borealDataPrep@0d9a34d520587156caab19de52bd184d312216b8",
+    "PredictiveEcology/Biomass_speciesFactorial@dac4cc052e0e780d752faacb2250d56b68c84d11",
+    "PredictiveEcology/Biomass_speciesParameters@305be17e873fcb789e681b41a2f680632ce833fc",
+    "PredictiveEcology/CBM_defaults@a498ab84e243dc9b8e0d431d553fc2dae547d267",
+    "DominiqueCaron/historicalDisturbances@22a7e5cbe90aae2215393e2cbb79f5fea5432744",
+    "PredictiveEcology/Biomass_regeneration@1d967adb38205e978329739aa110f248e70252ad",
+    "PredictiveEcology/Biomass_yieldTables@a49d5ef6b1a48868b932c0030aeaa1413b4f57c1",
+    "PredictiveEcology/Biomass_core@0639f3343dcf21b120df6b492422273cf81d30bd",
+    "PredictiveEcology/CBM_dataPrep@f6be1956be584d9f347fd2011bf92efe1ec924f7",
+    "PredictiveEcology/LandRCBM_split3pools@7359d10a33cd86cab8c013285c00112783cab888",
+    "PredictiveEcology/CBM_core@ab47a77621e3088efa182b42a59bb24963015600"
   ),
   packages = c("googledrive", 'RCurl', 'XML', "stars", "httr2"),
   # Study area is the taiga plains of northwest territories
@@ -112,7 +114,7 @@ out <- SpaDES.project::setupProject(
       speciesFittingApproach = "focal"
     ),
     Biomass_yieldTables = list(
-      moduleNameAndBranch = "PredictiveEcology/Biomass_core@development",
+      moduleNameAndBranch = "PredictiveEcology/Biomass_core@0639f3343dcf21b120df6b492422273cf81d30bd",
       maxAge = 150,
       .plots = "png",
       .useCache = "generateData"

@@ -7,8 +7,8 @@ ylims <- c(658873, 4500000)
 
 # Base layer
 # read vector data using rnaturalearth
-provinces <- prepInputs(url = "https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/files-fichiers/lpr_000b21a_e.zip",
-                        destinationPath = "inputs")
+provinces <- prepInputs(url = "https://www12.statcan.gc.ca/census-recensement/2011/geo/bound-limit/files-fichiers/2016/lpr_000b16a_e.zip",
+                        destinationPath = "inputs") |> st_simplify(dTolerance = 10000)
 
 land <- prepInputs(
   url = "https://naturalearth.s3.amazonaws.com/50m_physical/ne_50m_land.zip",
@@ -28,8 +28,8 @@ studyArea = {
   taigaPlains <- prepInputs(url = "http://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
                             destinationPath = "inputs", projectTo = nwt)
   taigaPlains <- taigaPlains[taigaPlains$ECOZONE == 4, ]
-  sa <- postProcessTo(taigaPlains, cropTo = nwt, maskTo = nwt) |> 
-    reproducible::Cache() |> 
+  sa <- postProcessTo(taigaPlains, cropTo = nwt, maskTo = nwt) |>
+    reproducible::Cache() |>
     st_union() |>
     st_as_sf() |> st_buffer(-125)
   sa
@@ -38,29 +38,29 @@ rm(nwt, sa, taigaPlains)
 
 
 p <- ggplot() +
-  
+
   # first layer is the land mass outline
   # as a grey border (fancy)
   geom_sf(data = land,
-          color = "grey50",
-          fill = "#dfdfdf",
+          color = NA,
+          fill = "grey95",
           size = 0.5) +
   geom_sf(data = provinces,
-          color = "white",
-          fill = "#dfdfdf",
+          color = "grey75",
+          fill = "grey95",
           size = 0.2) +
   geom_sf(data = studyArea,
-          color = "grey30",
-          fill = "blue",
+          color = "black",
+          fill = "darkgoldenrod2",
           alpha = 0.8) +
-  
+
   # crop the whole thing to size
   coord_sf(xlim = xlims,
            ylim = ylims) +
-  map_theme + 
+  map_theme +
   theme(
-    plot.background = element_rect(fill = "lightblue", color = NA),
-    panel.background = element_rect(fill = "lightblue", color = NA),
+    plot.background = element_rect(fill = "lightblue1", color = NA),
+    panel.background = element_rect(fill = "lightblue1", color = NA),
     plot.margin = margin(0,0,-0.1,-0.1,"cm")
   )
 
@@ -77,12 +77,12 @@ names(LandCover) <- "cover"
 rcl <- data.frame(is = c(0, 20, 31, 32, 33, 40, 50, 80, 81, 100, 210, 220, 230),
                   becomes = c(1, 2, 1, 1, 1, 1, 1, 3, 3, 1, 4, 5, 6))
 LandCover <- classify(LandCover, rcl = rcl)
-cls <- data.frame(id=c(1:6), 
-                  cover=c("Non-forested land", 
-                          "Water", 
-                          "Wetland", 
-                          "Coniferous forest", 
-                          "Broadleaf forest", 
+cls <- data.frame(id=c(1:6),
+                  cover=c("Non-forested land",
+                          "Water",
+                          "Wetland",
+                          "Coniferous forest",
+                          "Broadleaf forest",
                           "Mixedwood forest")
                   )
 cls <- cls[c(4, 5, 6, 3, 2, 1),]
@@ -142,7 +142,13 @@ ggdraw(
       linewidth = 0.75
     ) +
     coord_sf(expand = F) +
-    annotation_scale(width_hint = 0.2, text_cex = 1) + 
+    annotation_scale(width_hint = 0.2, text_cex = 1) +
+    annotation_north_arrow(
+      pad_x = unit(7.75, "cm"),
+      pad_y = unit(15.75, "cm"),
+      location = "tr",
+      style = north_arrow_fancy_orienteering
+    ) +
     guides(
       fill = guide_legend(order = 1),
       color = guide_legend(order = 2)
