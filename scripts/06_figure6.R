@@ -4,7 +4,8 @@ library(tidyterra)
 library(data.table)
 library(ggplot2)
 library(patchwork)
-
+source("scripts/themes.R")
+source("scripts/utils.R")
 outputPath <- "~/repos/LandRCBM_NWT/outputs/SCFM/"
 spadesCBMpath <- file.path(outputPath, "spadesCBMdb", "data")
 
@@ -122,5 +123,18 @@ p6b <- p6b + theme(legend.position = "none")
 
 final_plot <- (left | right) +
   plot_layout(widths = c(2, 1), heights = 1, guides = "keep")
+tiff(
+  "pubFigures/figure6.tif",
+  width = 2756,
+  height = 2028,
+  units = "px",
+  res = 500,
+  compression = "lzw"
+)
+
+final_plot
+
+dev.off()
+
 ggsave("pubFigures/figure6.png", plot = final_plot)
 ggsave("pubFigures/figure6.tif", plot = final_plot, width = 3740, height = 2493, dpi = 500, units = "px")

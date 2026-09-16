@@ -1,7 +1,7 @@
 # Characterizing study area
 Require::Require(c("reproducible", "terra", "sf", "LandR", "units", "dplyr"))
 
-# polygon of the study area: intersection of NWT and 
+# polygon of the study area: intersection of NWT and
 studyArea = {
   # northwest territories boundaries
   nwt <- prepInputs(url = "https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/files-fichiers/lpr_000a21a_e.zip",
@@ -11,8 +11,8 @@ studyArea = {
   taigaPlains <- prepInputs(url = "http://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
                                      destinationPath = "inputs", projectTo = nwt)
   taigaPlains <- taigaPlains[taigaPlains$ECOZONE == 4, ]
-  sa <- postProcessTo(taigaPlains, cropTo = nwt, maskTo = nwt) |> 
-    reproducible::Cache() |> 
+  sa <- postProcessTo(taigaPlains, cropTo = nwt, maskTo = nwt) |>
+    reproducible::Cache() |>
     st_union() |>
     st_as_sf() |> st_buffer(-125)
   sa
@@ -117,14 +117,14 @@ for (year in c(1985:2024)){
     destinationPath = "inputs",
     fun = terra::rast,
     overwrite = TRUE
-  )
+  ) |> Cache()
   disturbances_year[disturbances_year == 0] <- NA
   cell_area <- prod(res(disturbances_year)) * 10^-4
   area_year <- freq(disturbances_year)
   disturbances <- rbind(disturbances,
                         data.frame(year = year,
                                    disturbanceID = area_year$value,
-                                   area = area_year$count)
+                                   area = area_year$count * cell_area)
                         )
 }
 

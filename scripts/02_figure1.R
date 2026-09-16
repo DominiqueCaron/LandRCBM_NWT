@@ -1,5 +1,13 @@
 # Figure 1: Map of the study area with landcover and management areas.
-Require::Require(c("reproducible", "terra", "sf", "ggplot2", "tidyterra", "cowplot", "ggspatial"))
+Require::Require(c(
+  "reproducible",
+  "terra",
+  "sf",
+  "ggplot2",
+  "tidyterra",
+  "cowplot",
+  "ggspatial"
+))
 source("scripts/themes.R")
 
 xlims <- c(3658201, 8000000)
@@ -7,31 +15,46 @@ ylims <- c(658873, 4500000)
 
 # Base layer
 # read vector data using rnaturalearth
-provinces <- prepInputs(url = "https://www12.statcan.gc.ca/census-recensement/2011/geo/bound-limit/files-fichiers/2016/lpr_000b16a_e.zip",
-                        destinationPath = "inputs") |> st_simplify(dTolerance = 10000)
+provinces <- prepInputs(
+  url = "https://www12.statcan.gc.ca/census-recensement/2011/geo/bound-limit/files-fichiers/2016/lpr_000b16a_e.zip",
+  destinationPath = "inputs"
+) |>
+  st_simplify(dTolerance = 10000)
 
 land <- prepInputs(
   url = "https://naturalearth.s3.amazonaws.com/50m_physical/ne_50m_land.zip",
   destinationPath = "inputs",
   projectTo = provinces
 )
-land <- st_crop(land, xmin = xlims[1]-500000, xmax = xlims[2]+500000, ymin = ylims[1]-500000, ymax = ylims[2]+500000)
+land <- st_crop(
+  land,
+  xmin = xlims[1] - 500000,
+  xmax = xlims[2] + 500000,
+  ymin = ylims[1] - 500000,
+  ymax = ylims[2] + 500000
+)
 
 # studya area:
-studyArea = {
+studyArea <- {
   # northwest territories boundaries
-  nwt <- prepInputs(url = "https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/files-fichiers/lpr_000a21a_e.zip",
-                    destinationPath = "inputs",
-                    projectTo = provinces)
-  nwt <- nwt[nwt$PRENAME == "Northwest Territories",]
+  nwt <- prepInputs(
+    url = "https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/files-fichiers/lpr_000a21a_e.zip",
+    destinationPath = "inputs",
+    projectTo = provinces
+  )
+  nwt <- nwt[nwt$PRENAME == "Northwest Territories", ]
   # ecozone: Taiga plains
-  taigaPlains <- prepInputs(url = "http://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
-                            destinationPath = "inputs", projectTo = nwt)
+  taigaPlains <- prepInputs(
+    url = "http://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip",
+    destinationPath = "inputs",
+    projectTo = nwt
+  )
   taigaPlains <- taigaPlains[taigaPlains$ECOZONE == 4, ]
   sa <- postProcessTo(taigaPlains, cropTo = nwt, maskTo = nwt) |>
     reproducible::Cache() |>
     st_union() |>
-    st_as_sf() |> st_buffer(-125)
+    st_as_sf() |>
+    st_buffer(-125)
   sa
 }
 rm(nwt, sa, taigaPlains)
@@ -41,27 +64,22 @@ p <- ggplot() +
 
   # first layer is the land mass outline
   # as a grey border (fancy)
-  geom_sf(data = land,
-          color = NA,
-          fill = "grey95",
-          size = 0.5) +
-  geom_sf(data = provinces,
-          color = "grey75",
-          fill = "grey95",
-          size = 0.2) +
-  geom_sf(data = studyArea,
-          color = "black",
-          fill = "darkgoldenrod2",
-          alpha = 0.8) +
+  geom_sf(data = land, color = NA, fill = "grey95", size = 0.5) +
+  geom_sf(data = provinces, color = "grey75", fill = "grey95", size = 0.2) +
+  geom_sf(
+    data = studyArea,
+    color = "black",
+    fill = "darkgoldenrod2",
+    alpha = 0.8
+  ) +
 
   # crop the whole thing to size
-  coord_sf(xlim = xlims,
-           ylim = ylims) +
+  coord_sf(xlim = xlims, ylim = ylims) +
   map_theme +
   theme(
     plot.background = element_rect(fill = "lightblue1", color = NA),
     panel.background = element_rect(fill = "lightblue1", color = NA),
-    plot.margin = margin(0,0,-0.1,-0.1,"cm")
+    plot.margin = margin(0, 0, -0.1, -0.1, "cm")
   )
 
 ### main plot
@@ -72,20 +90,26 @@ LandCover <- prepInputs(
   cropTo = st_buffer(studyArea, 1000),
   destinationPath = "inputs",
   overwrite = TRUE
-) |> Cache()
+) |>
+  Cache()
 names(LandCover) <- "cover"
-rcl <- data.frame(is = c(0, 20, 31, 32, 33, 40, 50, 80, 81, 100, 210, 220, 230),
-                  becomes = c(1, 2, 1, 1, 1, 1, 1, 3, 3, 1, 4, 5, 6))
+rcl <- data.frame(
+  is = c(0, 20, 31, 32, 33, 40, 50, 80, 81, 100, 210, 220, 230),
+  becomes = c(1, 2, 1, 1, 1, 1, 1, 3, 3, 1, 4, 5, 6)
+)
 LandCover <- classify(LandCover, rcl = rcl)
-cls <- data.frame(id=c(1:6),
-                  cover=c("Non-forested land",
-                          "Water",
-                          "Wetland",
-                          "Coniferous forest",
-                          "Broadleaf forest",
-                          "Mixedwood forest")
-                  )
-cls <- cls[c(4, 5, 6, 3, 2, 1),]
+cls <- data.frame(
+  id = c(1:6),
+  cover = c(
+    "Non-forested land",
+    "Water",
+    "Wetland",
+    "Coniferous forest",
+    "Broadleaf forest",
+    "Mixedwood forest"
+  )
+)
+cls <- cls[c(4, 5, 6, 3, 2, 1), ]
 levels(LandCover) <- cls
 
 ## Add management areas:
@@ -95,24 +119,45 @@ managementArea <- prepInputs(
   cropTo = studyArea,
   fun = sf::st_read,
   overwrite = TRUE
-) |> Cache()
-managementArea_poly <- managementArea[managementArea$ManagedFor == "Managed Forest", ]
+) |>
+  Cache()
+managementArea_poly <- managementArea[
+  managementArea$ManagedFor == "Managed Forest",
+]
 
 ggplot() +
   geom_spatraster(data = LandCover, aes(fill = cover)) +
-  scale_fill_manual(values = c("Non-forested land" = "#d2cdc0", "Water"= "#5475a8", "Wetland" = "#64b3d5", "Coniferous forest" = "#38814e", "Broadleaf forest" = "#85c77e", "Mixedwood forest" = "#d4e7b0"), na.translate = FALSE) +
-  geom_sf(data = managementArea_poly, aes(color = ManagedFor), fill = "darkred", alpha = 0.25, linewidth = 0.5) +
+  scale_fill_manual(
+    values = c(
+      "Non-forested land" = "#d2cdc0",
+      "Water" = "#5475a8",
+      "Wetland" = "#64b3d5",
+      "Coniferous forest" = "#38814e",
+      "Broadleaf forest" = "#85c77e",
+      "Mixedwood forest" = "#d4e7b0"
+    ),
+    na.translate = FALSE
+  ) +
+  geom_sf(
+    data = managementArea_poly,
+    aes(color = ManagedFor),
+    fill = "darkred",
+    alpha = 0.25,
+    linewidth = 0.35
+  ) +
   scale_color_manual(values = c("Managed Forest" = "darkred")) +
-  geom_sf(data = studyArea,
-          color = "grey10",
-          fill = "transparent",
-          linewidth = 1) +
+  geom_sf(
+    data = studyArea,
+    color = "grey10",
+    fill = "transparent",
+    linewidth = 0.7
+  ) +
   map_theme +
   theme(
     axis.text = element_text()
   )
 
-ggdraw(
+fig1 <- ggdraw(
   ggplot() +
     geom_spatraster(data = LandCover, aes(fill = cover)) +
     scale_fill_manual(
@@ -132,38 +177,65 @@ ggdraw(
       aes(color = ManagedFor),
       fill = "darkred",
       alpha = 0.2,
-      linewidth = 0.5
+      linewidth = 0.35
     ) +
     scale_color_manual(values = c("Managed Forest" = "darkred"), name = NULL) +
     geom_sf(
       data = studyArea,
       color = "grey10",
       fill = "transparent",
-      linewidth = 0.75
+      linewidth = 0.5
     ) +
     coord_sf(expand = F) +
-    annotation_scale(width_hint = 0.2, text_cex = 1) +
+    annotation_scale(
+      width_hint = 0.2,
+      text_cex = 0.8,
+      height = unit(0.15, "cm")
+    ) +
     annotation_north_arrow(
-      pad_x = unit(7.75, "cm"),
-      pad_y = unit(15.75, "cm"),
-      location = "tr",
+      pad_x = unit(0.03, "npc"),
+      pad_y = unit(0.06, "npc"),
+      height = unit(0.8, "cm"),
+      width = unit(0.8, "cm"),
+      location = "bl",
       style = north_arrow_fancy_orienteering
     ) +
     guides(
       fill = guide_legend(order = 1),
       color = guide_legend(order = 2)
     ) +
-  map_theme +
-  theme(
-    axis.ticks = element_line(),
-    axis.text = element_text(size = 10)
-  )
+    map_theme +
+    theme(
+      axis.ticks = element_line(),
+      axis.text = element_text(size = 6),
+      legend.title = element_text(size = 8),
+      legend.text = element_text(size = 7),
+      legend.key.size = unit(0.35, "cm")
+    )
 ) +
-  draw_plot({
-    p
-  },
-  x = 0.45,
-  y = 0.8,
-  width = 0.20,
-  height = 0.18)
-ggsave("pubFigures/figure1.png", dpi = 1000, width = 7480, height = 7480, units = "px")
+  draw_plot(
+    {
+      p
+    },
+    x = 0.4,
+    y = 0.72,
+    width = 0.2,
+    height = 0.18
+  )
+
+# Ecological Modelling (Elsevier) single-column artwork spec:
+# - single column width = 90 mm
+# - combination art (color halftone + line/text) = 500 dpi minimum
+# - TIFF preferred over PNG for print production
+target_width_mm <- 90
+target_height_mm <- 120
+fig_dpi <- 500
+ggsave(
+  "pubFigures/figure1.tif",
+  plot = fig1,
+  width = target_width_mm,
+  height = target_height_mm,
+  units = "mm",
+  dpi = fig_dpi,
+  compression = "lzw"
+)
